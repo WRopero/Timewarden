@@ -61,7 +61,7 @@ def test_docker_demux_y_access_log():
     paths = {e["path"]: e for e in res["endpoints"]}
     assert paths["/api/v1/cognify"]["llm"] is True
     assert "/api/v1/datasets/{id}/data" in paths and paths["/api/v1/datasets/{id}/data"]["errors"] == 1
-    assert {c["caller"] for c in res["callers"]} == {"Mac (hooks, scripts, tu navegador)", "agents_cognee_mcp"}
+    assert {c["caller"] for c in res["callers"]} == {"Mac (hooks, scripts, your browser)", "agents_cognee_mcp"}
 
 
 @pytest.mark.parametrize("q", ["delete from x", "select 1; drop table x", "update t set a=1", "", "  ;", "insert into t values (1)",
@@ -78,13 +78,13 @@ def test_sql_de_lectura_se_acepta(q):
 
 def test_fmt_resume_vectores_y_textos_largos():
     assert pg.fmt("[" + ",".join(["0.1"] * 768) + "]") == "<vector dim=768>"
-    assert pg.fmt("x" * 400).endswith("(+100 car.)")
+    assert pg.fmt("x" * 400).endswith("(+100 chars)")
     assert pg.fmt(b"abc") == "<bytes 3>" and pg.fmt(None) is None
 
 
 def test_clasificacion_de_datasets_y_esquema():
-    assert kb.classify("demo-app-knowledge") == ("demo-app", "conocimiento")
-    assert kb.classify("demo_app_sessions") == ("demo-app", "sesiones")
-    assert kb.classify("codebase-demo_app-749bcea1") == ("demo-app", "código")
+    assert kb.classify("demo-app-knowledge") == ("demo-app", "knowledge")
+    assert kb.classify("demo_app_sessions") == ("demo-app", "sessions")
+    assert kb.classify("codebase-demo_app-749bcea1") == ("demo-app", "code")
     assert kb.classify("otro") == ("otro", "otro")
     assert pg.dataset_schema_name("00000000-0000-5000-8000-000000000001") == "ds_00000000000050008000000000000001"

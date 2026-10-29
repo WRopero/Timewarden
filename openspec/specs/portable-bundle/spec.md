@@ -1,27 +1,27 @@
 # portable-bundle Specification
 
 ## Purpose
-Distribuir el kit como un paquete neutral, relocalizable y autocontenido que otro agente pueda instalar en otro equipo.
+Distribute the kit as a neutral, relocatable, self-contained package that another agent can install on another machine.
 
 ## Requirements
 
-### Requirement: Neutralidad
-El paquete distribuible MUST NOT contener nombres de proyectos, empresas, cuentas, correos ni rutas absolutas de la máquina de origen, ni secretos, llaves, tokens, bases de datos ni evaluaciones de un proyecto concreto.
+### Requirement: Neutrality
+The distributable package MUST NOT contain project names, company names, accounts, email addresses, or absolute paths from the source machine, nor secrets, keys, tokens, databases, or evaluations from a specific project.
 
-#### Scenario: Escaneo del paquete
-- **WHEN** se empaqueta el bundle
-- **THEN** un escaneo de términos prohibidos y patrones de secretos sobre todos los archivos del `.zip` no encuentra coincidencias, y el empaquetado falla si las hay
+#### Scenario: Package scan
+- **WHEN** the bundle is packaged
+- **THEN** a scan for forbidden terms and secret patterns across all files in the `.zip` finds no matches, and packaging fails if there are any
 
-### Requirement: Relocalizable y autocontenido
-El paquete SHALL poder instalarse en cualquier directorio, resolver todas las rutas relativas a su propia ubicación (con una variable para sobrescribirla) e incluir el panel Management Memory, de modo que no dependa de repositorios ni cuentas externas.
+### Requirement: Relocatable and self-contained
+The package SHALL be installable in any directory, resolve all paths relative to its own location (with a variable to override it), and include the Management Memory dashboard, so that it does not depend on external repositories or accounts.
 
-#### Scenario: Instalación en otro directorio
-- **WHEN** se descomprime el `.zip` en un directorio arbitrario y se ejecuta la comprobación de requisitos
-- **THEN** la comprobación reporta rutas correctas y no referencia ubicaciones del equipo de origen
+#### Scenario: Installation in another directory
+- **WHEN** the `.zip` is unzipped into an arbitrary directory and the requirements check is run
+- **THEN** the check reports correct paths and does not reference locations on the source machine
 
-### Requirement: Runbook y verificación
-El paquete SHALL incluir el runbook por fases con puntos de aprobación, el prompt para pegar a un agente, la especificación técnica y una verificación de aceptación, y MUST documentar qué sale del equipo del usuario (solo el texto que se indexa vía Claude).
+### Requirement: Runbook and verification
+The package SHALL include the phased runbook with approval checkpoints, the prompt to paste into an agent, the technical specification, and an acceptance check, and MUST document what leaves the user's machine (only the text that is indexed via Claude).
 
-#### Scenario: Entrega
-- **WHEN** un compañero recibe el `.zip`
-- **THEN** encuentra un `LEEME` con los pasos mínimos y el prompt listo, sin conocer el sistema
+#### Scenario: Delivery
+- **WHEN** a colleague receives the `.zip`
+- **THEN** they find a `LEEME` with the minimal steps and the ready-made prompt, without knowing the system

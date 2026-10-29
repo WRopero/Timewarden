@@ -5,19 +5,19 @@ description: Use when switching session or agent, pausing a task, or before cont
 
 # project-memory-handoff
 
-> `<MS>` = ruta del sistema de memoria: campo `memory_system` de `.agent-memory/local.yaml` (local a cada maquina).
+> `<MS>` = path to the memory system: the `memory_system` field of `.agent-memory/local.yaml` (local to each machine).
 
-Preserva el estado observable de una tarea. No guarda razonamiento interno del modelo.
+Preserves the observable state of a task. It does not store the model's internal reasoning.
 
-## Procedimiento
-1. Captura: objetivo, rama y commit (`git branch --show-current`, `git rev-parse --short HEAD`), restricciones, archivos tocados, cambios sin commit, pruebas y resultados, decisiones nuevas con su fuente, intentos fallidos, trabajo pendiente y **siguiente accion**.
-2. Marca explicitamente lo no validado.
-3. Escribe un archivo por tarea: `docs/agent-memory/handoffs/<fecha>-<tarea>.md` (compartible) o, si es privado, `docs/agent-memory/handoffs/_local/` (esta excluido del indice). Nunca un unico archivo global.
-4. **Despliegue:** si en la sesion se desplego algo, comprueba la salud y registralo con `python3 -I <MS>/scripts/memory_deploy.py record <repo> <entorno> --commit <sha> --note "..."`; el briefing compara por rama que esta desplegado y que no. Si no se desplego, no registres nada y dilo en el handoff (rama, commit, "sin desplegar").
-5. Al retomar: valida rama/commit con el estado real antes de confiar en el handoff; contrastalo con el repo.
+## Procedure
+1. Capture: objective, branch and commit (`git branch --show-current`, `git rev-parse --short HEAD`), constraints, files touched, uncommitted changes, tests and results, new decisions with their source, failed attempts, pending work and **next action**.
+2. Explicitly mark anything not validated.
+3. Write one file per task: `docs/agent-memory/handoffs/<date>-<task>.md` (shareable) or, if private, `docs/agent-memory/handoffs/_local/` (it is excluded from the index). Never a single global file.
+4. **Deployment:** if something was deployed during the session, check its health and record it with `python3 -I <MS>/scripts/memory_deploy.py record <repo> <environment> --commit <sha> --note "..."`; the briefing compares by branch what is deployed and what is not. If nothing was deployed, do not record anything and say so in the handoff (branch, commit, "not deployed").
+5. When resuming: validate the branch/commit against the real state before trusting the handoff; cross-check it against the repo.
 
-## Compactacion
-`PreCompact` solo persiste estado ya disponible; no puede invocar esta skill. Mantén el handoff al dia **durante** el trabajo y antes de acercarte al limite de contexto.
+## Compaction
+`PreCompact` only persists state that is already available; it cannot invoke this skill. Keep the handoff up to date **during** the work and before approaching the context limit.
 
-## Limites
-- Un checkpoint no es una conclusion validada. Nada de secretos.
+## Limits
+- A checkpoint is not a validated conclusion. No secrets.

@@ -1,6 +1,6 @@
 "use strict";
-/* Management Memory — panel de control de SOLO LECTURA.
-   Todo el contenido dinámico se inserta con textContent (nunca innerHTML). */
+/* Management Memory — READ-ONLY control panel.
+   All dynamic content is inserted with textContent (never innerHTML). */
 
 const $ = (s) => document.querySelector(s);
 const SVGNS = "http://www.w3.org/2000/svg";
@@ -23,7 +23,7 @@ const api = async (path, opts) => {
   return j;
 };
 
-/* ── formato ── */
+/* ── formatting ── */
 const bytes = (n) => {
   if (n == null) return "—";
   const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0, v = Number(n);
@@ -35,11 +35,11 @@ const usd = (n) => (n == null ? "—" : `$${Number(n).toFixed(4)}`);
 const ago = (iso) => {
   if (!iso) return "—";
   const s = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (s < 90) return "hace instantes"; if (s < 5400) return `hace ${Math.round(s / 60)} min`;
-  if (s < 129600) return `hace ${Math.round(s / 3600)} h`; return `hace ${Math.round(s / 86400)} d`;
+  if (s < 90) return "just now"; if (s < 5400) return `${Math.round(s / 60)} min ago`;
+  if (s < 129600) return `${Math.round(s / 3600)} h ago`; return `${Math.round(s / 86400)} d ago`;
 };
 
-/* ── iconos (trazo, 24×24) ── */
+/* ── icons (stroke, 24×24) ── */
 const ICON = {
   home: "M3 11l9-8 9 8v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z",
   book: "M4 4h12a3 3 0 0 1 3 3v13H7a3 3 0 0 1-3-3zM4 17a3 3 0 0 1 3-3h12",
@@ -64,11 +64,11 @@ const icon = (name, size = 18) => {
   const p = document.createElementNS(SVGNS, "path"); p.setAttribute("d", ICON[name] || ICON.info); s.append(p); return s;
 };
 
-/* ── componentes ── */
+/* ── components ── */
 const help = (text) => h("span", { class: "help", "data-tip": text, tabindex: "0", role: "note", "aria-label": text }, "?");
 const pill = (text, kind = "") => h("span", { class: `pill ${kind}` }, text);
 const intro = (title, text, more) => h("div", { class: "callout" }, icon("info", 20),
-  h("div", {}, h("b", {}, title), h("p", {}, text), more ? h("details", {}, h("summary", {}, "Saber más"), h("p", {}, more)) : null));
+  h("div", {}, h("b", {}, title), h("p", {}, text), more ? h("details", {}, h("summary", {}, "Learn more"), h("p", {}, more)) : null));
 function sparkline(vals) {
   const w = 84, hgt = 30, max = Math.max(1, ...vals), min = Math.min(...vals);
   const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${hgt - 3 - ((v - min) / (max - min || 1)) * (hgt - 6)}`).join(" ");
@@ -82,14 +82,14 @@ const kpi = ({ label, value, meta, tip, spark }) => h("div", { class: "card kpi"
 const tile = ({ ic, name, state, tone, what, data }) => h("div", { class: `card tile ${tone}` }, h("div", { class: "ic" }, icon(ic, 20)),
   h("div", {}, h("div", { class: "name" }, name), h("div", { class: "state" }, state), h("div", { class: "what" }, what), data ? h("div", { class: "data" }, data) : null));
 function table(cols, rows, opts = {}) {
-  if (!rows || !rows.length) return h("div", { class: "tbl" }, h("div", { class: "empty" }, opts.empty || "Sin datos todavía."));
+  if (!rows || !rows.length) return h("div", { class: "tbl" }, h("div", { class: "empty" }, opts.empty || "No data yet."));
   return h("div", { class: "tbl" }, h("div", { class: "scroll" }, h("table", {},
     h("thead", {}, h("tr", {}, cols.map((c) => h("th", { class: c.n ? "n" : "" }, c.t, c.tip ? help(c.tip) : null)))),
     h("tbody", {}, rows.map((r) => h("tr", { class: opts.onrow ? "click" : "", onclick: opts.onrow ? (e) => opts.onrow(r, e.currentTarget) : null },
       cols.map((c) => { const v = c.f ? c.f(r) : r[c.k]; return h("td", { class: c.n ? "n" : "" }, v?.nodeType ? v : (v ?? "—")); })))))));
 }
 function barChart(points, { label = (p) => p.k, value = (p) => p.v, fmt = num } = {}) {
-  if (!points.length) return h("div", { class: "empty" }, "Sin datos en este periodo.");
+  if (!points.length) return h("div", { class: "empty" }, "No data in this period.");
   const max = Math.max(1, ...points.map(value));
   return h("div", {}, h("div", { class: "bars" }, points.map((p) => h("div", { style: `height:${Math.max(3, (100 * value(p)) / max)}%`, data: { t: `${label(p)}: ${fmt(value(p))}` } }))),
     h("div", { class: "axis" }, h("span", {}, label(points[0])), h("span", {}, label(points[points.length - 1]))));
@@ -98,119 +98,119 @@ function hbars(items, fmt = num) {
   const max = Math.max(1, ...items.map((i) => i.v));
   return h("div", {}, items.map((i) => h("div", { class: "hb" }, h("span", { class: "l", title: i.l }, i.l), h("span", { class: "t" }, h("i", { style: `width:${Math.max(2, (100 * i.v) / max)}%` })), h("span", { class: "v" }, fmt(i.v)))));
 }
-const loading = () => h("div", { class: "empty" }, "Cargando…");
-const fail = (e) => h("div", { class: "callout", style: "background:var(--bad-soft)" }, icon("alert", 20), h("div", {}, h("b", {}, "No se pudo cargar"), h("p", {}, e.message)));
+const loading = () => h("div", { class: "empty" }, "Loading…");
+const fail = (e) => h("div", { class: "callout", style: "background:var(--bad-soft)" }, icon("alert", 20), h("div", {}, h("b", {}, "Could not load"), h("p", {}, e.message)));
 async function render(fn) {
   const v = $("#view"); v.replaceChildren(loading());
   try { v.replaceChildren(await fn()); } catch (e) { v.replaceChildren(fail(e)); }
 }
 const section = (title, hint) => [h("h2", {}, title), hint ? h("p", { class: "hint" }, hint) : null];
 
-/* ── lenguaje claro: nombres y explicaciones ── */
+/* ── plain language: names and explanations ── */
 const COLLECTION = {
-  DocumentChunk_text: ["Fragmentos de tus documentos", "Cada documento se corta en trozos; esta colección es la que usa la búsqueda."],
-  TextSummary_text: ["Resúmenes de cada fragmento", "Un resumen corto por fragmento, generado por Claude al indexar."],
-  TextDocument_name: ["Nombres de documentos", "Un vector por documento."],
-  Entity_name: ["Conceptos detectados", "Módulos, reglas, decisiones… que Claude extrajo de los textos (nodos del grafo)."],
-  EntityType_name: ["Categorías de conceptos", "Los tipos a los que pertenecen los conceptos (p. ej. «módulo», «regla»)."],
-  EdgeType_relationship_name: ["Descripciones de las conexiones del grafo", "Un vector por cada conexión entre conceptos, con una frase que la describe («X menciona Y», «X es parte de Z»). Solo sirven para búsquedas sobre el grafo, no para la búsqueda por fragmentos."],
-  SessionQAVector_text: ["Preguntas y respuestas de sesiones", "Conversaciones guardadas en el grafo."],
+  DocumentChunk_text: ["Fragments of your documents", "Each document is cut into pieces; this is the collection that search uses."],
+  TextSummary_text: ["Summaries of each fragment", "A short summary per fragment, generated by Claude at indexing time."],
+  TextDocument_name: ["Document names", "One vector per document."],
+  Entity_name: ["Detected concepts", "Modules, rules, decisions… that Claude extracted from the texts (graph nodes)."],
+  EntityType_name: ["Concept categories", "The types the concepts belong to (e.g. «module», «rule»)."],
+  EdgeType_relationship_name: ["Descriptions of graph connections", "One vector per connection between concepts, with a phrase that describes it («X mentions Y», «X is part of Z»). They are only useful for graph searches, not for fragment search."],
+  SessionQAVector_text: ["Session questions and answers", "Conversations saved in the graph."],
 };
 const ADVICE = {
-  aristas_dominan: ["Las relaciones del grafo ocupan casi todo el espacio de vectores", "Cada conexión del grafo guarda su propia frase descriptiva como vector (son todas distintas, no hay duplicados). No son tus documentos y la búsqueda por fragmentos (CHUNKS, la que usamos) no los consulta. Si algún día necesitas ahorrar espacio es lo primero a mirar, pero hoy son solo unos MB."],
-  sin_ann: ["Sin índice de búsqueda rápida (ANN)", "La búsqueda compara con todos los vectores (exacta). Con cientos o miles de filas es instantánea. Solo habría que crear un índice con decenas de miles. No es un problema hoy."],
-  sesiones: ["Historia de sesiones", "Cada cierre de sesión guarda un resumen con ~3 llamadas a Claude. Revisa en «Tokens y costo» si compensa lo que gastas frente a lo que te aporta."],
-  vacio: ["Dataset vacío", "No contiene documentos: puedes eliminarlo sin perder nada."],
-  codigo_vacio: ["Dataset de código vacío", "Lo crea el plugin aunque la indexación de código esté apagada. No consume nada."],
-  no_indexados: ["Documentos pendientes de indexar", "Están en el registro pero no se confirmó su indexación. Se reintentan con el siguiente sync."],
-  faltan_en_cognee: ["Documentos que desaparecieron de Cognee", "Existen en el registro pero ya no en la memoria. Hay que volver a sincronizar."],
-  huerfanos: ["Documentos sin registro", "Están en Cognee pero no los gestiona el sincronizador (¿cargados a mano?)."],
-  docs_pesados: ["Documentos que cuestan mucho", "Tienen muchos más fragmentos que el resto. Cada fragmento cuesta ~2 llamadas a Claude al reindexar: valora dividirlos o acortarlos."],
+  edges_dominate: ["Graph relationships take up almost all of the vector space", "Each graph connection stores its own descriptive phrase as a vector (they are all different, no duplicates). They are not your documents, and fragment search (CHUNKS, the one we use) does not query them. If you ever need to save space, this is the first place to look, but today it is only a few MB."],
+  no_ann: ["No fast-search index (ANN)", "Search compares against all vectors (exact). With hundreds or thousands of rows it is instantaneous. An index would only be needed with tens of thousands. Not a problem today."],
+  sessions: ["Session history", "Each session close stores a summary with ~3 calls to Claude. Check «Tokens and cost» to see whether what you spend is worth what it gives you."],
+  empty: ["Empty dataset", "It contains no documents: you can delete it without losing anything."],
+  empty_code: ["Empty code dataset", "The plugin creates it even if code indexing is turned off. It consumes nothing."],
+  not_indexed: ["Documents pending indexing", "They are in the registry but their indexing was not confirmed. They are retried on the next sync."],
+  missing_in_cognee: ["Documents that disappeared from Cognee", "They exist in the registry but no longer in memory. A new sync is needed."],
+  orphans: ["Documents without a registry entry", "They are in Cognee but are not managed by the synchronizer (loaded by hand?)."],
+  heavy_docs: ["Documents that cost a lot", "They have many more fragments than the rest. Each fragment costs ~2 calls to Claude when reindexing: consider splitting or shortening them."],
 };
 const GLOSSARY = [
-  ["Memoria / base de conocimiento", "Lo que la IA «recuerda» de un proyecto: tus documentos convertidos en datos que se pueden buscar por significado."],
-  ["Dataset", "Un «cajón» independiente de la memoria. Cada proyecto tiene uno de conocimiento (sus documentos) y otro de sesiones (conversaciones)."],
-  ["Documento", "Un archivo de texto (normalmente Markdown) que se guardó en la memoria."],
-  ["Chunk (fragmento)", "Un trozo de un documento. Se corta así para buscar con precisión y dar a Claude solo lo relevante."],
-  ["Vector (embedding)", "La «huella» numérica de un texto: 768 números que representan su significado. Textos parecidos tienen huellas cercanas; así funciona la búsqueda. Se calcula en local."],
-  ["Dimensión", "Cuántos números tiene cada vector (aquí 768). Más dimensiones = más detalle, más espacio."],
-  ["Índice ANN", "Un atajo para buscar vectores parecidos sin compararlos con todos. Útil a partir de decenas de miles de filas."],
-  ["Grafo de conocimiento", "Un mapa de conceptos (nodos) unidos por relaciones (aristas), que Claude extrae de los textos al indexar."],
-  ["Nodo / Arista", "Nodo = un concepto o documento. Arista = una conexión entre dos nodos, con nombre (contiene, es_un…)."],
-  ["Observer", "Un puente en tu Mac que usa tu suscripción de Claude para que Cognee pueda resumir y extraer conceptos. Cada llamada cuenta tokens."],
-  ["Token", "La unidad en que se mide el texto que procesa una IA (~3-4 caracteres). Más tokens = más consumo."],
-  ["Caché de tokens", "Texto que Claude ya vio y reutiliza más barato. Aparece como «lectura de caché»."],
-  ["Reingesta", "Volver a indexar un documento. Cuesta unas 2 llamadas a Claude por fragmento. Sirve para estimar qué costaría reconstruir la memoria."],
-  ["OpenTelemetry (OTel)", "Un estándar para medir lo que hace un programa. Claude Code lo usa para reportar cada llamada y sus tokens al collector."],
-  ["Collector", "El servicio que recibe esa telemetría y la guarda en archivos que esta pantalla lee."],
-  ["MCP", "El «enchufe» local por el que Claude Code consulta la memoria con herramientas (recall, remember…)."],
-  ["Sesión", "Una conversación con Claude Code. Cognee puede guardar su historia para recordarla después."],
-  ["Briefing", "Resumen automático (objetivo, decisiones, reglas, pendientes) que se carga al abrir una sesión sin consultar Cognee. Cuesta ~1 000 tokens."],
-  ["Swap", "Memoria prestada del disco cuando la RAM se llena; si crece mucho, el Mac va justo."],
-  ["Huella (espacio)", "Todo lo que ocupa un dataset: base de datos + grafo + texto crudo."],
+  ["Memory / knowledge base", "What the AI «remembers» about a project: your documents turned into data that can be searched by meaning."],
+  ["Dataset", "An independent «drawer» of memory. Each project has one for knowledge (its documents) and another for sessions (conversations)."],
+  ["Document", "A text file (usually Markdown) that was saved in memory."],
+  ["Chunk (fragment)", "A piece of a document. It is cut this way to search precisely and give Claude only what is relevant."],
+  ["Vector (embedding)", "The numeric «fingerprint» of a text: 768 numbers that represent its meaning. Similar texts have close fingerprints; that is how search works. It is computed locally."],
+  ["Dimension", "How many numbers each vector has (here 768). More dimensions = more detail, more space."],
+  ["ANN index", "A shortcut for finding similar vectors without comparing against all of them. Useful from tens of thousands of rows onward."],
+  ["Knowledge graph", "A map of concepts (nodes) joined by relationships (edges), which Claude extracts from the texts when indexing."],
+  ["Node / Edge", "Node = a concept or document. Edge = a named connection between two nodes (contains, is_a…)."],
+  ["Observer", "A bridge on your Mac that uses your Claude subscription so Cognee can summarize and extract concepts. Each call counts tokens."],
+  ["Token", "The unit in which the text an AI processes is measured (~3-4 characters). More tokens = more consumption."],
+  ["Token cache", "Text that Claude has already seen and reuses more cheaply. It appears as «cache read»."],
+  ["Reingestion", "Indexing a document again. It costs about 2 calls to Claude per fragment. Used to estimate what rebuilding the memory would cost."],
+  ["OpenTelemetry (OTel)", "A standard for measuring what a program does. Claude Code uses it to report each call and its tokens to the collector."],
+  ["Collector", "The service that receives that telemetry and stores it in files that this screen reads."],
+  ["MCP", "The local «plug» through which Claude Code queries the memory with tools (recall, remember…)."],
+  ["Session", "A conversation with Claude Code. Cognee can save its history to remember it later."],
+  ["Briefing", "Automatic summary (goal, decisions, rules, pending items) that is loaded when a session opens without querying Cognee. Costs ~1 000 tokens."],
+  ["Swap", "Memory borrowed from disk when RAM fills up; if it grows a lot, the Mac is running tight."],
+  ["Footprint (space)", "Everything a dataset occupies: database + graph + raw text."],
 ];
 
-/* ── páginas ── */
+/* ── pages ── */
 const pages = {};
 
-pages.resumen = { title: "Resumen", sub: "El estado de tu memoria en un vistazo.", icon: "home", run: async () => {
+pages.overview = { title: "Overview", sub: "The state of your memory at a glance.", icon: "home", run: async () => {
   const [o, kb] = await Promise.all([api("/overview"), api("/kb")]);
   const reg = o.registry.states || {}, pending = Object.entries(reg).filter(([k]) => k !== "indexed").reduce((s, [, v]) => s + v, 0);
   const issues = [];
-  [["Cognee (API)", o.cognee], ["MCP", o.mcp], ["PostgreSQL", o.postgres], ["Observer", o.observer]].forEach(([n, s]) => { if (!s.ok) issues.push(`${n} no responde.`); });
-  if (!o.collector.ok) issues.push("El collector de telemetría no tiene archivos.");
-  if (pending) issues.push(`${pending} documento(s) sin indexar correctamente (ver «Sincronización»).`);
+  [["Cognee (API)", o.cognee], ["MCP", o.mcp], ["PostgreSQL", o.postgres], ["Observer", o.observer]].forEach(([n, s]) => { if (!s.ok) issues.push(`${n} is not responding.`); });
+  if (!o.collector.ok) issues.push("The telemetry collector has no files.");
+  if (pending) issues.push(`${pending} document(s) not indexed correctly (see «Synchronization»).`);
   kb.datasets.forEach((d) => d.flags.filter((f) => f.level === "warn").forEach((f) => issues.push(`${d.name}: ${f.text}`)));
   const root = h("div", {});
   root.append(issues.length
-    ? h("div", { class: "attention warn" }, icon("alert", 22), h("div", {}, h("h2", {}, `${issues.length} ${issues.length === 1 ? "cosa requiere" : "cosas requieren"} tu atención`), h("ul", {}, issues.map((i) => h("li", {}, i)))))
-    : h("div", { class: "attention ok" }, icon("check", 22), h("div", {}, h("h2", {}, "Todo en orden"), h("span", { class: "muted" }, "Los servicios responden, todos los documentos están indexados y no hay avisos."))));
-  const t = (ok, ic, name, what, data) => tile({ ic, name, tone: ok ? "ok" : "bad", state: ok ? "Funcionando" : "No responde", what, data });
-  root.append(...section("Salud de los servicios", "Cada pieza del sistema y para qué sirve. Todo corre en tu Mac."));
+    ? h("div", { class: "attention warn" }, icon("alert", 22), h("div", {}, h("h2", {}, `${issues.length} ${issues.length === 1 ? "thing needs" : "things need"} your attention`), h("ul", {}, issues.map((i) => h("li", {}, i)))))
+    : h("div", { class: "attention ok" }, icon("check", 22), h("div", {}, h("h2", {}, "All good"), h("span", { class: "muted" }, "The services are responding, all documents are indexed and there are no warnings."))));
+  const t = (ok, ic, name, what, data) => tile({ ic, name, tone: ok ? "ok" : "bad", state: ok ? "Running" : "Not responding", what, data });
+  root.append(...section("Service health", "Each piece of the system and what it is for. Everything runs on your Mac."));
   root.append(h("div", { class: "grid" },
-    t(o.cognee.ok, "layers", "Cognee", "El servicio local que guarda y busca la memoria.", o.cognee.version && `Versión ${o.cognee.version}`),
-    t(o.postgres.ok, "db", "Base de datos", "Donde viven los vectores y los datos.", o.postgres.ok && `${bytes(o.postgres.size_bytes)} · ${o.postgres.connections} conexiones`),
-    t(o.observer.ok, "zap", "Observer (Claude)", "Permite a Cognee usar tu suscripción de Claude al indexar.", o.observer.ok && `${num(o.observer.calls)} llamadas desde que arrancó`),
-    t(o.mcp.ok, "search", "MCP", "Por donde Claude Code consulta la memoria (local).", "Puerto 45873"),
-    t(o.collector.ok, "pulse", "Telemetría (OTel)", "Recoge cuántos tokens gasta Claude Code.", `${o.collector.files} archivo(s) · ${bytes(o.collector.bytes)} · ${ago(o.collector.latest_file)}`),
-    t(pending === 0, "sync", "Sincronización", "Mantiene la memoria igual a tus documentos.", `${reg.indexed || 0} de ${o.registry.total} indexados`)));
+    t(o.cognee.ok, "layers", "Cognee", "The local service that stores and searches the memory.", o.cognee.version && `Version ${o.cognee.version}`),
+    t(o.postgres.ok, "db", "Database", "Where the vectors and data live.", o.postgres.ok && `${bytes(o.postgres.size_bytes)} · ${o.postgres.connections} connections`),
+    t(o.observer.ok, "zap", "Observer (Claude)", "Lets Cognee use your Claude subscription when indexing.", o.observer.ok && `${num(o.observer.calls)} calls since it started`),
+    t(o.mcp.ok, "search", "MCP", "How Claude Code queries the memory (local).", "Port 45873"),
+    t(o.collector.ok, "pulse", "Telemetry (OTel)", "Collects how many tokens Claude Code uses.", `${o.collector.files} file(s) · ${bytes(o.collector.bytes)} · ${ago(o.collector.latest_file)}`),
+    t(pending === 0, "sync", "Synchronization", "Keeps the memory identical to your documents.", `${reg.indexed || 0} of ${o.registry.total} indexed`)));
   const obs = o.observer_usage, ot = o.otel_usage.total;
-  root.append(...section("Cuánta memoria hay y qué cuesta", "Pasa el cursor sobre «?» para ver qué significa cada número."));
+  root.append(...section("How much memory there is and what it costs", "Hover over «?» to see what each number means."));
   const totalFoot = kb.datasets.reduce((s, d) => s + (d.footprint_bytes || 0), 0), docs = kb.datasets.reduce((s, d) => s + (d.documents || 0), 0), vec = kb.datasets.reduce((s, d) => s + (d.vector_rows || 0), 0);
   root.append(h("div", { class: "grid" },
-    kpi({ label: "Espacio total", value: bytes(totalFoot), meta: `${kb.projects.length} proyecto(s) · ${kb.datasets.length} datasets`, tip: "Todo lo que ocupa la memoria: base de datos + grafo + texto." }),
-    kpi({ label: "Documentos", value: num(docs), meta: `${num(kb.datasets.reduce((s, d) => s + d.chunks, 0))} fragmentos`, tip: "Archivos guardados y los trozos en que se cortaron para buscar." }),
-    kpi({ label: "Vectores", value: num(vec), meta: "768 números cada uno", tip: "La huella numérica de cada texto, concepto y relación. Se calcula en local y permite buscar por significado." }),
-    kpi({ label: "Llamadas a Claude", value: num(obs.total.calls), meta: `${num(obs.total.tokens)} tokens`, tip: "Veces que Cognee usó tu suscripción para indexar. Se miden en el observer.", spark: obs.by_day.map((d) => d.calls) }),
-    kpi({ label: "Sesiones medidas", value: num(ot.sessions), meta: `${num(ot.total)} tokens`, tip: "Sesiones de Claude Code con telemetría activada. Solo cuentan las lanzadas con «claude-memory».", spark: o.otel_usage.by_day.map((d) => d.total) })));
+    kpi({ label: "Total space", value: bytes(totalFoot), meta: `${kb.projects.length} project(s) · ${kb.datasets.length} datasets`, tip: "Everything the memory occupies: database + graph + text." }),
+    kpi({ label: "Documents", value: num(docs), meta: `${num(kb.datasets.reduce((s, d) => s + d.chunks, 0))} fragments`, tip: "Saved files and the pieces they were cut into for searching." }),
+    kpi({ label: "Vectors", value: num(vec), meta: "768 numbers each", tip: "The numeric fingerprint of each text, concept and relationship. It is computed locally and allows searching by meaning." }),
+    kpi({ label: "Calls to Claude", value: num(obs.total.calls), meta: `${num(obs.total.tokens)} tokens`, tip: "Times Cognee used your subscription to index. Measured at the observer.", spark: obs.by_day.map((d) => d.calls) }),
+    kpi({ label: "Measured sessions", value: num(ot.sessions), meta: `${num(ot.total)} tokens`, tip: "Claude Code sessions with telemetry enabled. Only those launched with «claude-memory» count.", spark: o.otel_usage.by_day.map((d) => d.total) })));
   root.append(h("div", { class: "grid two", style: "margin-top:14px" },
-    h("div", { class: "card" }, h("h3", {}, "Llamadas a Claude por día"), barChart(obs.by_day, { label: (p) => p.day, value: (p) => p.calls }), h("p", { class: "hint small" }, "Cada barra es un día. Cada llamada es un paso de indexación o de resumen.")),
-    h("div", { class: "card" }, h("h3", {}, "Qué ocupa más espacio"), hbars(kb.datasets.filter((d) => d.footprint_bytes).sort((a, b) => b.footprint_bytes - a.footprint_bytes).map((d) => ({ l: d.name, v: d.footprint_bytes })), bytes), h("p", { class: "hint small" }, "Por dataset. Entra en «Bases de conocimiento» para ver el desglose."))));
+    h("div", { class: "card" }, h("h3", {}, "Calls to Claude per day"), barChart(obs.by_day, { label: (p) => p.day, value: (p) => p.calls }), h("p", { class: "hint small" }, "Each bar is a day. Each call is an indexing or summarization step.")),
+    h("div", { class: "card" }, h("h3", {}, "What takes up the most space"), hbars(kb.datasets.filter((d) => d.footprint_bytes).sort((a, b) => b.footprint_bytes - a.footprint_bytes).map((d) => ({ l: d.name, v: d.footprint_bytes })), bytes), h("p", { class: "hint small" }, "By dataset. Go to «Knowledge bases» to see the breakdown."))));
   return root;
 } };
 
-pages.conocimiento = { title: "Bases de conocimiento", sub: "Cuánta memoria tiene cada proyecto, cuánto pesa y qué cuesta rehacerla.", icon: "book", run: async () => {
+pages.knowledge = { title: "Knowledge bases", sub: "How much memory each project has, how much it weighs and what it costs to rebuild.", icon: "book", run: async () => {
   const o = await api("/kb");
   const root = h("div", {});
-  root.append(intro("¿Qué estoy viendo?", "Cada proyecto tiene su propia base de conocimiento: sus documentos convertidos en datos que la IA puede consultar. Aquí ves cuánta hay, cuánto espacio ocupa y cuánto costaría reconstruirla, para decidir si conviene compactar o eliminar algo.",
-    "«Reconstruir» es el costo de volver a indexar todo: ~2 llamadas a Claude por fragmento. Se calcula con el promedio real que mide el observer."));
+  root.append(intro("What am I looking at?", "Each project has its own knowledge base: its documents turned into data that the AI can query. Here you see how much there is, how much space it takes and how much it would cost to rebuild, to decide whether it is worth compacting or deleting something.",
+    "«Rebuild» is the cost of indexing everything again: ~2 calls to Claude per fragment. It is calculated with the real average measured by the observer."));
   const totalFoot = o.datasets.reduce((s, d) => s + (d.footprint_bytes || 0), 0), reingest = o.projects.reduce((s, p) => s + p.est_reingest_tokens, 0);
   root.append(h("div", { class: "grid" },
-    kpi({ label: "Proyectos con memoria", value: num(o.projects.length), meta: o.projects.map((p) => p.project).join(", ") }),
-    kpi({ label: "Espacio total", value: bytes(totalFoot), meta: `Base de datos ${bytes(o.pg.size_bytes)} · grafo y archivos ${bytes(o.storage.total_bytes)}`, tip: "Lo que ocupa todo en disco." }),
-    kpi({ label: "Costo de reconstruir todo", value: `${num(reingest)} tokens`, meta: `≈ ${num(o.avg_tokens_per_call)} por llamada`, tip: "Estimación: fragmentos × 2 llamadas × tokens medios por llamada." })));
-  root.append(...section("Por proyecto", "Los datasets de un mismo proyecto (conocimiento, sesiones, código) se suman."));
+    kpi({ label: "Projects with memory", value: num(o.projects.length), meta: o.projects.map((p) => p.project).join(", ") }),
+    kpi({ label: "Total space", value: bytes(totalFoot), meta: `Database ${bytes(o.pg.size_bytes)} · graph and files ${bytes(o.storage.total_bytes)}`, tip: "What everything takes up on disk." }),
+    kpi({ label: "Cost to rebuild everything", value: `${num(reingest)} tokens`, meta: `≈ ${num(o.avg_tokens_per_call)} per call`, tip: "Estimate: fragments × 2 calls × average tokens per call." })));
+  root.append(...section("By project", "The datasets of the same project (knowledge, sessions, code) are summed."));
   root.append(table([
-    { t: "Proyecto", f: (r) => h("strong", {}, r.project) }, { t: "Contiene", f: (r) => r.datasets.map((d) => d.kind).join(" · ") },
-    { t: "Documentos", n: 1, f: (r) => num(r.documents) }, { t: "Fragmentos", n: 1, f: (r) => num(r.chunks), tip: "Trozos en que se cortan los documentos." }, { t: "Vectores", n: 1, f: (r) => num(r.vector_rows) },
-    { t: "Espacio", n: 1, f: (r) => bytes(r.footprint_bytes) }, { t: "Reconstruir", n: 1, f: (r) => `${num(r.est_reingest_tokens)} tok`, tip: "Tokens que costaría volver a indexarlo." }], o.projects));
-  root.append(...section("Por dataset", "Haz clic en una fila para ver el detalle, los documentos que más cuestan y qué hacer."));
+    { t: "Project", f: (r) => h("strong", {}, r.project) }, { t: "Contains", f: (r) => r.datasets.map((d) => d.kind).join(" · ") },
+    { t: "Documents", n: 1, f: (r) => num(r.documents) }, { t: "Fragments", n: 1, f: (r) => num(r.chunks), tip: "Pieces the documents are cut into." }, { t: "Vectors", n: 1, f: (r) => num(r.vector_rows) },
+    { t: "Space", n: 1, f: (r) => bytes(r.footprint_bytes) }, { t: "Rebuild", n: 1, f: (r) => `${num(r.est_reingest_tokens)} tok`, tip: "Tokens it would cost to index it again." }], o.projects));
+  root.append(...section("By dataset", "Click a row to see the detail, the documents that cost the most and what to do."));
   const box = h("div", {});
   root.append(table([
     { t: "Dataset", f: (r) => h("span", {}, h("strong", {}, r.name), " ", pill(r.kind, "brand")) }, { t: "Docs", n: 1, f: (r) => num(r.documents) },
-    { t: "Texto", n: 1, f: (r) => `${num(r.est_tokens)} tok`, tip: "Tamaño del texto original, en tokens aproximados." }, { t: "Conceptos", n: 1, f: (r) => num(r.nodes), tip: "Nodos del grafo." }, { t: "Conexiones", n: 1, f: (r) => num(r.edges), tip: "Aristas del grafo." },
-    { t: "Vectores", n: 1, f: (r) => num(r.vector_rows) }, { t: "Espacio", n: 1, f: (r) => bytes(r.footprint_bytes) },
-    { t: "Avisos", f: (r) => { const n = r.flags.filter((f) => f.level !== "info").length; return n ? pill(`${n} ${n === 1 ? "aviso" : "avisos"}`, "warn") : pill("sin avisos", "ok"); } }],
+    { t: "Text", n: 1, f: (r) => `${num(r.est_tokens)} tok`, tip: "Size of the original text, in approximate tokens." }, { t: "Concepts", n: 1, f: (r) => num(r.nodes), tip: "Graph nodes." }, { t: "Connections", n: 1, f: (r) => num(r.edges), tip: "Graph edges." },
+    { t: "Vectors", n: 1, f: (r) => num(r.vector_rows) }, { t: "Space", n: 1, f: (r) => bytes(r.footprint_bytes) },
+    { t: "Warnings", f: (r) => { const n = r.flags.filter((f) => f.level !== "info").length; return n ? pill(`${n} ${n === 1 ? "warning" : "warnings"}`, "warn") : pill("no warnings", "ok"); } }],
     o.datasets, { onrow: (r, tr) => { document.querySelectorAll("tr.sel").forEach((x) => x.classList.remove("sel")); tr.classList.add("sel"); detail(r.id, box); } }));
   root.append(box);
   return root;
@@ -219,306 +219,306 @@ async function detail(id, box) {
   box.replaceChildren(loading());
   try {
     const d = await api(`/kb/${id}`);
-    box.replaceChildren(...section(`Detalle de ${d.name}`, null),
-      h("div", { class: "grid" }, kpi({ label: "Documentos", value: num(d.documents), meta: `${bytes(d.raw_bytes)} de texto` }), kpi({ label: "Fragmentos", value: num(d.chunks), meta: `≈ ${num(d.est_tokens)} tokens` }),
-        kpi({ label: "Reconstruir", value: `${num(d.est_reingest_calls)} llamadas`, meta: `≈ ${num(d.est_reingest_tokens)} tokens`, tip: "Fragmentos × 2 llamadas a Claude." }),
-        kpi({ label: "Espacio", value: bytes(d.footprint_bytes), meta: `Postgres ${bytes(d.pg_bytes)} · grafo ${bytes(d.graph_bytes)}` })),
-      ...section("Qué significa y qué puedes hacer", "Avisos y datos que ayudan a decidir si compactar o limpiar."),
-      ...(d.flags.length ? d.flags.map((f) => { const a = ADVICE[f.code]; return h("div", { class: `advice ${f.level}` }, icon(f.level === "warn" ? "alert" : "info", 18), h("div", {}, h("b", {}, a ? a[0] : f.code), h("span", {}, a ? a[1] : f.text), a ? h("div", { class: "small muted", style: "margin-top:4px" }, "Dato: " + f.text) : null)); }) : [h("div", { class: "empty" }, "Sin avisos para este dataset.")]),
-      ...section("Documentos, del que más cuesta al que menos", "Los fragmentos determinan el costo de reindexar. Un documento con muchos fragmentos es candidato a dividirse o acortarse."),
-      table([{ t: "Documento", f: (r) => r.path || r.name }, { t: "Estado", f: (r) => (r.status ? pill(r.status === "indexed" ? "indexado" : r.status, r.status === "indexed" ? "ok" : "warn") : pill("sin registro", "warn")) },
-        { t: "Fragmentos", n: 1, f: (r) => num(r.chunks) }, { t: "Texto", n: 1, f: (r) => `${num(r.est_tokens)} tok` }, { t: "Reindexar", n: 1, f: (r) => `${num(r.est_reingest_tokens)} tok` }, { t: "Actualizado", f: (r) => ago(r.updated || r.created) }], d.docs),
-      ...section("Dónde están los vectores", "Una colección por tipo de texto, guardada en la base de datos para buscar por significado."), vectorTable(d.collections));
+    box.replaceChildren(...section(`Detail of ${d.name}`, null),
+      h("div", { class: "grid" }, kpi({ label: "Documents", value: num(d.documents), meta: `${bytes(d.raw_bytes)} of text` }), kpi({ label: "Fragments", value: num(d.chunks), meta: `≈ ${num(d.est_tokens)} tokens` }),
+        kpi({ label: "Rebuild", value: `${num(d.est_reingest_calls)} calls`, meta: `≈ ${num(d.est_reingest_tokens)} tokens`, tip: "Fragments × 2 calls to Claude." }),
+        kpi({ label: "Space", value: bytes(d.footprint_bytes), meta: `Postgres ${bytes(d.pg_bytes)} · graph ${bytes(d.graph_bytes)}` })),
+      ...section("What it means and what you can do", "Warnings and data that help decide whether to compact or clean up."),
+      ...(d.flags.length ? d.flags.map((f) => { const a = ADVICE[f.code]; return h("div", { class: `advice ${f.level}` }, icon(f.level === "warn" ? "alert" : "info", 18), h("div", {}, h("b", {}, a ? a[0] : f.code), h("span", {}, a ? a[1] : f.text), a ? h("div", { class: "small muted", style: "margin-top:4px" }, "Data: " + f.text) : null)); }) : [h("div", { class: "empty" }, "No warnings for this dataset.")]),
+      ...section("Documents, from most to least costly", "Fragments determine the cost of reindexing. A document with many fragments is a candidate for splitting or shortening."),
+      table([{ t: "Document", f: (r) => r.path || r.name }, { t: "Status", f: (r) => (r.status ? pill(r.status === "indexed" ? "indexed" : r.status, r.status === "indexed" ? "ok" : "warn") : pill("no registry entry", "warn")) },
+        { t: "Fragments", n: 1, f: (r) => num(r.chunks) }, { t: "Text", n: 1, f: (r) => `${num(r.est_tokens)} tok` }, { t: "Reindex", n: 1, f: (r) => `${num(r.est_reingest_tokens)} tok` }, { t: "Updated", f: (r) => ago(r.updated || r.created) }], d.docs),
+      ...section("Where the vectors are", "One collection per type of text, stored in the database for searching by meaning."), vectorTable(d.collections));
     box.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (e) { box.replaceChildren(fail(e)); }
 }
 function vectorTable(cols) {
   return table([
-    { t: "Qué guarda", f: (r) => { const c = COLLECTION[r.table]; return h("div", {}, h("strong", {}, c ? c[0] : r.table), c ? h("div", { class: "muted small" }, c[1]) : null, h("code", {}, r.table)); } },
-    { t: "Vectores", n: 1, f: (r) => num(r.rows) }, { t: "Dimensión", n: 1, f: (r) => r.dim, tip: "Cuántos números tiene cada vector." },
-    { t: "Espacio", n: 1, f: (r) => bytes(r.bytes_total) }, { t: "Índice rápido", f: (r) => (r.has_ann_index ? pill("sí", "ok") : pill("no (búsqueda exacta)")), tip: "Atajo de búsqueda (ANN). Sin él compara contra todos: perfecto para pocos datos." },
-    { t: "Ejemplo", f: (r) => (r.sample ? h("div", {}, h("div", { class: "mono muted" }, `[${r.sample.first_components.slice(0, 4).join(", ")} …]`), h("div", { class: "small" }, r.sample.item.slice(0, 60))) : "—") }], cols);
+    { t: "What it stores", f: (r) => { const c = COLLECTION[r.table]; return h("div", {}, h("strong", {}, c ? c[0] : r.table), c ? h("div", { class: "muted small" }, c[1]) : null, h("code", {}, r.table)); } },
+    { t: "Vectors", n: 1, f: (r) => num(r.rows) }, { t: "Dimension", n: 1, f: (r) => r.dim, tip: "How many numbers each vector has." },
+    { t: "Space", n: 1, f: (r) => bytes(r.bytes_total) }, { t: "Fast index", f: (r) => (r.has_ann_index ? pill("yes", "ok") : pill("no (exact search)")), tip: "Search shortcut (ANN). Without it, it compares against all of them: perfect for small amounts of data." },
+    { t: "Example", f: (r) => (r.sample ? h("div", {}, h("div", { class: "mono muted" }, `[${r.sample.first_components.slice(0, 4).join(", ")} …]`), h("div", { class: "small" }, r.sample.item.slice(0, 60))) : "—") }], cols);
 }
 
-pages.vectores = { title: "Vectores", sub: "Qué huellas numéricas se crean, dónde se guardan y cuánto pesan.", icon: "cube", run: async () => {
+pages.vectors = { title: "Vectors", sub: "Which numeric fingerprints are created, where they are stored and how much they weigh.", icon: "cube", run: async () => {
   const all = await api("/vectors");
   const root = h("div", {});
-  root.append(intro("¿Qué es un vector y dónde se crea?", "Para buscar por significado (no por palabras exactas), cada texto se convierte en una lista de 768 números: su «huella». Dos textos con significado parecido tienen huellas cercanas. Se calculan dentro de tu Mac, en el contenedor de Cognee, y se guardan en PostgreSQL (un esquema por dataset).",
-    "El modelo es jina-embeddings-v2-base-es: se descargó una vez, corre en local, no usa tu suscripción ni internet, y entiende español e inglés."));
-  for (const d of all) root.append(...section(d.dataset, `${num(d.rows)} vectores · ${bytes(d.bytes)} en disco · esquema ${d.schema}`), d.collections.length ? vectorTable(d.collections) : h("div", { class: "empty" }, "Este dataset no tiene vectores."));
+  root.append(intro("What is a vector and where is it created?", "To search by meaning (not by exact words), each text is converted into a list of 768 numbers: its «fingerprint». Two texts with similar meaning have close fingerprints. They are computed inside your Mac, in the Cognee container, and stored in PostgreSQL (one schema per dataset).",
+    "The model is jina-embeddings-v2-base-es: it was downloaded once, runs locally, does not use your subscription or the internet, and understands Spanish and English."));
+  for (const d of all) root.append(...section(d.dataset, `${num(d.rows)} vectors · ${bytes(d.bytes)} on disk · schema ${d.schema}`), d.collections.length ? vectorTable(d.collections) : h("div", { class: "empty" }, "This dataset has no vectors."));
   return root;
 } };
 
 const TYPE_COLORS = { Entity: "#0e7c86", EntityType: "#c2650c", DocumentChunk: "#4f7cc4", TextSummary: "#8a63b5", TextDocument: "#12805c", Timestamp: "#98a2b3", default: "#667085" };
-const TYPE_NAMES = { Entity: "Conceptos", EntityType: "Categorías", DocumentChunk: "Fragmentos", TextSummary: "Resúmenes", TextDocument: "Documentos", Timestamp: "Fechas" };
-pages.grafo = { title: "Grafo", sub: "El mapa de conceptos que Claude extrajo de tus documentos.", icon: "graph", run: async () => {
+const TYPE_NAMES = { Entity: "Concepts", EntityType: "Categories", DocumentChunk: "Fragments", TextSummary: "Summaries", TextDocument: "Documents", Timestamp: "Dates" };
+pages.graph = { title: "Graph", sub: "The map of concepts that Claude extracted from your documents.", icon: "graph", run: async () => {
   const ds = (await api("/datasets")).filter((d) => d.nodes);
-  if (!ds.length) return h("div", {}, intro("Aún no hay grafo", "Cuando se indexen documentos, aquí aparecerá el mapa de conceptos."));
-  const sel = h("select", {}, ds.map((d) => h("option", { value: d.id }, `${d.name} (${num(d.nodes)} nodos)`)));
+  if (!ds.length) return h("div", {}, intro("There is no graph yet", "Once documents are indexed, the concept map will appear here."));
+  const sel = h("select", {}, ds.map((d) => h("option", { value: d.id }, `${d.name} (${num(d.nodes)} nodes)`)));
   const max = h("input", { type: "number", value: 300, min: 20, max: 3000, style: "width:90px" });
   const chips = h("div", { class: "row" }), info = h("p", { class: "hint" });
-  const panel = h("div", { class: "card" }, h("h3", {}, "Detalle"), h("p", { class: "muted" }, "Haz clic en un punto para ver qué es y sus propiedades."));
+  const panel = h("div", { class: "card" }, h("h3", {}, "Detail"), h("p", { class: "muted" }, "Click a point to see what it is and its properties."));
   const cyBox = h("div", { id: "cy" }); let cy = null, stats = null; const active = new Set();
   const load = async () => {
-    info.textContent = "Cargando grafo…";
+    info.textContent = "Loading graph…";
     try {
       const types = active.size ? [...active].join(",") : "";
       const g = await api(`/datasets/${sel.value}/graph?max_nodes=${max.value}&types=${encodeURIComponent(types)}`);
-      if (!stats) { stats = g.stats; chips.replaceChildren(...Object.entries(stats.types).map(([t, c]) => { active.add(t); return h("span", { class: "pill chip", style: `box-shadow:inset 0 0 0 2px ${TYPE_COLORS[t] || TYPE_COLORS.default}`, title: "Mostrar/ocultar", onclick: (e) => { active.has(t) ? active.delete(t) : active.add(t); e.currentTarget.classList.toggle("off"); load(); } }, `${TYPE_NAMES[t] || t} · ${c}`); })); }
-      info.textContent = `Mostrando ${g.stats.shown_nodes} de ${g.stats.nodes} puntos y ${g.stats.shown_edges} de ${g.stats.edges} conexiones${g.stats.truncated ? " (los más conectados)" : ""}.`;
+      if (!stats) { stats = g.stats; chips.replaceChildren(...Object.entries(stats.types).map(([t, c]) => { active.add(t); return h("span", { class: "pill chip", style: `box-shadow:inset 0 0 0 2px ${TYPE_COLORS[t] || TYPE_COLORS.default}`, title: "Show/hide", onclick: (e) => { active.has(t) ? active.delete(t) : active.add(t); e.currentTarget.classList.toggle("off"); load(); } }, `${TYPE_NAMES[t] || t} · ${c}`); })); }
+      info.textContent = `Showing ${g.stats.shown_nodes} of ${g.stats.nodes} points and ${g.stats.shown_edges} of ${g.stats.edges} connections${g.stats.truncated ? " (the most connected)" : ""}.`;
       if (cy) cy.destroy();
       cy = cytoscape({ container: cyBox, elements: [...g.nodes.map((n) => ({ data: { id: n.id, label: n.label, type: n.type, degree: n.degree, props: n.props } })), ...g.edges.map((e, i) => ({ data: { id: "e" + i, source: e.source, target: e.target, label: e.label } }))],
         style: [{ selector: "node", style: { "background-color": (n) => TYPE_COLORS[n.data("type")] || TYPE_COLORS.default, label: "data(label)", "font-size": 9, color: "#667085", "min-zoomed-font-size": 10, "text-wrap": "ellipsis", "text-max-width": 90, width: "mapData(degree,0,40,8,34)", height: "mapData(degree,0,40,8,34)" } },
           { selector: "edge", style: { width: 0.6, "line-color": "#b8c0cc", "curve-style": "haystack", opacity: 0.5 } }, { selector: "node:selected", style: { "border-width": 3, "border-color": "#c2650c" } }],
         layout: { name: "cose", animate: false, nodeRepulsion: 9000, idealEdgeLength: 60 } });
-      cy.on("tap", "node", (ev) => { const n = ev.target.data(); panel.replaceChildren(h("h3", {}, TYPE_NAMES[n.type] || n.type), h("strong", {}, n.label), h("p", { class: "muted" }, `${n.degree} conexiones`), h("pre", {}, JSON.stringify(n.props, null, 2))); });
+      cy.on("tap", "node", (ev) => { const n = ev.target.data(); panel.replaceChildren(h("h3", {}, TYPE_NAMES[n.type] || n.type), h("strong", {}, n.label), h("p", { class: "muted" }, `${n.degree} connections`), h("pre", {}, JSON.stringify(n.props, null, 2))); });
     } catch (e) { info.textContent = ""; cyBox.replaceChildren(fail(e)); }
   };
   sel.onchange = () => { stats = null; active.clear(); load(); }; max.onchange = load;
   setTimeout(async () => { await load(); if (stats) $("#rels").replaceChildren(hbars(Object.entries(stats.relations).sort((a, b) => b[1] - a[1]).map(([l, v]) => ({ l, v })))); }, 0);
-  return h("div", {}, intro("¿Qué es el grafo?", "Al indexar un documento, Claude identifica los conceptos que aparecen (módulos, reglas, decisiones…) y cómo se relacionan. Cada punto es un concepto, fragmento o documento; cada línea es una relación con nombre. Los puntos grandes son los más conectados."),
-    h("div", { class: "row" }, sel, h("span", { class: "muted" }, "máx. puntos"), max, h("button", { onclick: load }, "Cargar")), h("div", { style: "margin:10px 0" }, chips), info,
-    h("div", { class: "split" }, cyBox, panel), ...section("Tipos de relación", "Cuántas conexiones hay de cada clase."), h("div", { class: "card", id: "rels" }));
+  return h("div", {}, intro("What is the graph?", "When a document is indexed, Claude identifies the concepts that appear in it (modules, rules, decisions…) and how they relate. Each point is a concept, fragment or document; each line is a named relationship. The large points are the most connected."),
+    h("div", { class: "row" }, sel, h("span", { class: "muted" }, "max. points"), max, h("button", { onclick: load }, "Load")), h("div", { style: "margin:10px 0" }, chips), info,
+    h("div", { class: "split" }, cyBox, panel), ...section("Relationship types", "How many connections there are of each kind."), h("div", { class: "card", id: "rels" }));
 } };
 
-pages.postgres = { title: "PostgreSQL", sub: "Explora la base de datos donde viven los vectores (solo lectura).", icon: "db", run: async () => {
+pages.postgres = { title: "PostgreSQL", sub: "Explore the database where the vectors live (read-only).", icon: "db", run: async () => {
   const schemas = await api("/pg/schemas");
-  const right = h("div", {}, h("div", { class: "empty" }, "Elige un esquema a la izquierda para ver sus tablas."));
+  const right = h("div", {}, h("div", { class: "empty" }, "Choose a schema on the left to see its tables."));
   const showTable = async (schema, tbl, offset = 0) => {
     right.replaceChildren(loading());
     try {
       const d = await api(`/pg/table?schema=${encodeURIComponent(schema)}&table=${encodeURIComponent(tbl)}&limit=25&offset=${offset}`);
-      right.replaceChildren(...section(`${tbl}`, schema), table([{ t: "Columna", k: "name" }, { t: "Tipo", k: "type" }, { t: "Admite vacío", f: (c) => (c.nullable ? "sí" : "no") }], d.columns),
-        ...section(`Filas ${offset + 1}–${offset + d.rows.length}`, "Los vectores y los textos largos se muestran resumidos."), table(d.columns.map((c, i) => ({ t: c.name, f: (r) => h("span", { class: "mono" }, String(r[i] ?? "NULL")) })), d.rows),
-        h("div", { class: "row", style: "margin-top:10px" }, offset ? h("button", { class: "ghost", onclick: () => showTable(schema, tbl, Math.max(0, offset - 25)) }, "← Anterior") : null, d.rows.length === 25 ? h("button", { class: "ghost", onclick: () => showTable(schema, tbl, offset + 25) }, "Siguiente →") : null));
+      right.replaceChildren(...section(`${tbl}`, schema), table([{ t: "Column", k: "name" }, { t: "Type", k: "type" }, { t: "Nullable", f: (c) => (c.nullable ? "yes" : "no") }], d.columns),
+        ...section(`Rows ${offset + 1}–${offset + d.rows.length}`, "Vectors and long texts are shown abbreviated."), table(d.columns.map((c, i) => ({ t: c.name, f: (r) => h("span", { class: "mono" }, String(r[i] ?? "NULL")) })), d.rows),
+        h("div", { class: "row", style: "margin-top:10px" }, offset ? h("button", { class: "ghost", onclick: () => showTable(schema, tbl, Math.max(0, offset - 25)) }, "← Previous") : null, d.rows.length === 25 ? h("button", { class: "ghost", onclick: () => showTable(schema, tbl, offset + 25) }, "Next →") : null));
     } catch (e) { right.replaceChildren(fail(e)); }
   };
   const showSchema = async (s) => {
     right.replaceChildren(loading());
     try {
       const t = await api(`/pg/tables?schema=${encodeURIComponent(s.schema)}`);
-      right.replaceChildren(...section(s.dataset ? `Dataset ${s.dataset}` : `Esquema ${s.schema}`, s.schema), table([{ t: "Tabla", f: (r) => h("code", {}, r.table) }, { t: "Filas", n: 1, f: (r) => num(r.rows) }, { t: "Espacio", n: 1, f: (r) => bytes(r.bytes) }], t, { onrow: (r) => showTable(s.schema, r.table) }));
+      right.replaceChildren(...section(s.dataset ? `Dataset ${s.dataset}` : `Schema ${s.schema}`, s.schema), table([{ t: "Table", f: (r) => h("code", {}, r.table) }, { t: "Rows", n: 1, f: (r) => num(r.rows) }, { t: "Space", n: 1, f: (r) => bytes(r.bytes) }], t, { onrow: (r) => showTable(s.schema, r.table) }));
     } catch (e) { right.replaceChildren(fail(e)); }
   };
-  const left = table([{ t: "Esquema", f: (s) => h("div", {}, h("strong", {}, s.dataset || s.schema), s.dataset ? h("div", { class: "muted small mono" }, s.schema.slice(0, 18) + "…") : null) }, { t: "Tablas", n: 1, k: "tables" }, { t: "Espacio", n: 1, f: (s) => bytes(s.bytes) }], schemas, { onrow: showSchema });
+  const left = table([{ t: "Schema", f: (s) => h("div", {}, h("strong", {}, s.dataset || s.schema), s.dataset ? h("div", { class: "muted small mono" }, s.schema.slice(0, 18) + "…") : null) }, { t: "Tables", n: 1, k: "tables" }, { t: "Space", n: 1, f: (s) => bytes(s.bytes) }], schemas, { onrow: showSchema });
   const sql = h("textarea", {}, "select count(*) as fragmentos from \"ds_<id_del_dataset>\".\"DocumentChunk_text\""), out = h("div", {});
   const run = async () => {
     out.replaceChildren(loading());
     try {
       const r = await api("/pg/query", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql: sql.value }) });
-      out.replaceChildren(table(r.columns.map((c, i) => ({ t: c, f: (row) => h("span", { class: "mono" }, String(row[i] ?? "NULL")) })), r.rows), r.truncated ? h("p", { class: "hint" }, "Resultado recortado a 500 filas.") : null);
+      out.replaceChildren(table(r.columns.map((c, i) => ({ t: c, f: (row) => h("span", { class: "mono" }, String(row[i] ?? "NULL")) })), r.rows), r.truncated ? h("p", { class: "hint" }, "Result truncated to 500 rows.") : null);
     } catch (e) { out.replaceChildren(fail(e)); }
   };
-  return h("div", {}, intro("¿Qué es esto?", "PostgreSQL es la base de datos donde Cognee guarda los vectores. Cada dataset tiene su propio esquema (ds_…) con una tabla por tipo de texto. Esta vista es de solo lectura: no puedes cambiar nada desde aquí, ni siquiera con la consola SQL.", "La conexión usa un rol propio (mm_reader) con permisos de solo lectura, transacciones de lectura y un límite de 15 segundos por consulta."),
-    h("div", { class: "split", style: "grid-template-columns:380px minmax(0,1fr)" }, left, right), ...section("Consola SQL", "Una sola consulta de lectura (SELECT, WITH, EXPLAIN, SHOW)."), sql, h("div", { class: "row", style: "margin:10px 0" }, h("button", { onclick: run }, "Ejecutar")), out);
+  return h("div", {}, intro("What is this?", "PostgreSQL is the database where Cognee stores the vectors. Each dataset has its own schema (ds_…) with one table per type of text. This view is read-only: you cannot change anything from here, not even with the SQL console.", "The connection uses a dedicated role (mm_reader) with read-only permissions, read-only transactions and a limit of 15 seconds per query."),
+    h("div", { class: "split", style: "grid-template-columns:380px minmax(0,1fr)" }, left, right), ...section("SQL console", "A single read query (SELECT, WITH, EXPLAIN, SHOW)."), sql, h("div", { class: "row", style: "margin:10px 0" }, h("button", { onclick: run }, "Run")), out);
 } };
 
-pages.busqueda = { title: "Búsqueda", sub: "Prueba cómo recupera la memoria lo que le preguntas.", icon: "search", run: async () => {
+pages.search = { title: "Search", sub: "Test how the memory retrieves what you ask it.", icon: "search", run: async () => {
   const ds = await api("/datasets");
   const sel = h("select", {}, ds.filter((d) => d.documents).map((d) => h("option", { value: d.name }, d.name)));
-  const q = h("input", { placeholder: "Escribe una pregunta, p. ej. «¿qué umbrales usa la calificación?»", style: "flex:1;min-width:300px" }), k = h("input", { type: "number", value: 5, min: 1, max: 20, style: "width:70px" });
+  const q = h("input", { placeholder: "Type a question, e.g. «what thresholds does the scoring use?»", style: "flex:1;min-width:300px" }), k = h("input", { type: "number", value: 5, min: 1, max: 20, style: "width:70px" });
   const out = h("div", {});
   const go = async () => {
     if (!q.value.trim()) return; out.replaceChildren(loading()); const t0 = performance.now();
     try {
       const r = await api("/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dataset: sel.value, query: q.value, top_k: Number(k.value) }) });
-      out.replaceChildren(h("p", { class: "hint" }, `${r.results.length} resultados en ${Math.round(performance.now() - t0)} ms · sin llamadas a Claude · distancia menor = más parecido`),
-        ...r.results.map((x, i) => h("div", { class: "card", style: "margin:10px 0" }, h("div", { class: "row" }, pill(`#${i + 1}`, "brand"), h("strong", {}, x.path || x.document_id || "?"), h("span", { class: "spacer" }), pill(`distancia ${x.score?.toFixed?.(3) ?? x.score}`), x.status ? pill(x.status === "indexed" ? "indexado" : x.status, x.status === "indexed" ? "ok" : "warn") : null), h("p", { style: "white-space:pre-wrap;margin:10px 0 0" }, (x.text || "").slice(0, 900)))));
+      out.replaceChildren(h("p", { class: "hint" }, `${r.results.length} results in ${Math.round(performance.now() - t0)} ms · no calls to Claude · smaller distance = more similar`),
+        ...r.results.map((x, i) => h("div", { class: "card", style: "margin:10px 0" }, h("div", { class: "row" }, pill(`#${i + 1}`, "brand"), h("strong", {}, x.path || x.document_id || "?"), h("span", { class: "spacer" }), pill(`distance ${x.score?.toFixed?.(3) ?? x.score}`), x.status ? pill(x.status === "indexed" ? "indexed" : x.status, x.status === "indexed" ? "ok" : "warn") : null), h("p", { style: "white-space:pre-wrap;margin:10px 0 0" }, (x.text || "").slice(0, 900)))));
     } catch (e) { out.replaceChildren(fail(e)); }
   };
   q.addEventListener("keydown", (e) => e.key === "Enter" && go());
-  return h("div", {}, intro("¿Para qué sirve?", "Es el mismo mecanismo que usa Claude cuando consulta la memoria. Escribes una pregunta, se convierte en un vector (en local) y se devuelven los fragmentos más cercanos. Sirve para comprobar si la memoria «entiende» lo que le preguntas. No gasta tokens de tu suscripción.", "Usa el modo CHUNKS (fragmentos): es el más barato, sin llamadas a Claude."),
-    h("div", { class: "row" }, sel, q, h("span", { class: "muted" }, "resultados"), k, h("button", { onclick: go }, "Buscar")), out);
+  return h("div", {}, intro("What is it for?", "It is the same mechanism Claude uses when it queries the memory. You type a question, it is converted into a vector (locally) and the closest fragments are returned. It is useful for checking whether the memory «understands» what you ask it. It does not spend tokens from your subscription.", "Use the CHUNKS (fragments) mode: it is the cheapest, with no calls to Claude."),
+    h("div", { class: "row" }, sel, q, h("span", { class: "muted" }, "results"), k, h("button", { onclick: go }, "Search")), out);
 } };
 
-pages.tokens = { title: "Tokens y costo", sub: "Cuánto texto procesa la IA y de dónde sale ese consumo.", icon: "zap", run: async () => {
+pages.tokens = { title: "Tokens and cost", sub: "How much text the AI processes and where that consumption comes from.", icon: "zap", run: async () => {
   const [t, otel] = await Promise.all([api("/tokens?days=30"), api("/otel")]);
   const root = h("div", {});
   const o = t.observer.total || {}, c = t.claude_code.total, s = t.cognee_sessions.stats || {};
-  root.append(intro("¿Qué es un token y qué mide esta pantalla?", "Un token es la unidad con que se mide el texto que procesa una IA (~3-4 caracteres). Aquí se cuentan tokens, no dinero: tu suscripción de Claude no cobra por token y su cuota restante no se puede consultar desde fuera. Hay tres fuentes distintas, cada una mide algo diferente.",
-    "Para que una sesión de Claude Code aparezca en la fuente 2, hay que abrirla con «scripts/claude-memory <proyecto>» (o definir las variables OTEL_* en la terminal). El bloque «env» de los ajustes del proyecto no sirve para esto. Las sesiones normales no se miden."));
-  root.append(...section("1 · Lo que Cognee gasta en indexar (el observer)", "Cada vez que Cognee resume o extrae conceptos, llama a Claude a través del observer. Esta fuente es completa: no se le escapa ninguna llamada."));
-  root.append(h("div", { class: "grid" }, kpi({ label: "Llamadas", value: num(o.calls), spark: t.observer.by_day.map((d) => d.calls) }), kpi({ label: "Tokens", value: num(o.tokens), meta: `${num(o.avg_tokens)} por llamada`, spark: t.observer.by_day.map((d) => d.tokens) }),
-    kpi({ label: "Rapidez (mediana)", value: `${num(o.p50_ms)} ms`, meta: `p95: ${num(o.p95_ms)} ms`, tip: "p95: el 95 % de las llamadas tarda menos que esto." })));
-  root.append(h("div", { class: "grid two", style: "margin-top:14px" }, h("div", { class: "card" }, h("h3", {}, "Tokens por día"), barChart(t.observer.by_day, { label: (p) => p.day, value: (p) => p.tokens })),
-    h("div", { class: "card" }, h("h3", {}, "Últimas llamadas"), table([{ t: "Hora", f: (r) => (r.ts || "").slice(5, 16).replace("T", " ") }, { t: "Tokens", n: 1, f: (r) => num(r.tokens) }, { t: "Duración", n: 1, f: (r) => `${num(r.duration_ms)} ms` }], (t.observer.recent || []).slice(0, 8)))));
-  root.append(...section("2 · Lo que gasta Claude Code (telemetría)", "Cada respuesta de Claude en las sesiones medidas: tokens de entrada, de salida y de caché. El costo es el equivalente en API, no lo que cobra tu suscripción."));
-  root.append(h("div", { class: "grid" }, kpi({ label: "Llamadas", value: num(c.calls), meta: `${c.sessions} sesiones` }), kpi({ label: "Tokens totales", value: num(c.total), meta: `entrada ${num(c.input)} · salida ${num(c.output)}` }),
-    kpi({ label: "Caché", value: num(c.cache_read), meta: `escritura ${num(c.cache_creation)}`, tip: "Texto que Claude ya había visto y reutiliza más barato." }), kpi({ label: "Costo equivalente en API", value: usd(c.cost), tip: "Referencia: cuánto costaría si pagaras por uso en lugar de suscripción." })));
-  root.append(h("h3", { style: "margin-top:18px" }, "Por corrida"), table([{ t: "Proyecto", f: (r) => r.project || "—" }, { t: "Corrida", f: (r) => r.run || "(sin run_id)" }, { t: "Var.", f: (r) => r.variant || "—", tip: "A = sin memoria, B = con memoria (comparaciones)." }, { t: "Llamadas", n: 1, k: "calls" }, { t: "Tokens", n: 1, f: (r) => num(r.total) }, { t: "Costo", n: 1, f: (r) => usd(r.cost) }, { t: "Mediana", n: 1, f: (r) => `${num(r.p50_ms)} ms` }], t.claude_code.by_run));
-  root.append(h("h3", { style: "margin-top:18px" }, "Por modelo"), table([{ t: "Modelo", k: "model" }, { t: "Llamadas", n: 1, k: "calls" }, { t: "Tokens", n: 1, f: (r) => num(r.total) }, { t: "Costo", n: 1, f: (r) => usd(r.cost) }], t.claude_code.by_model));
-  root.append(...section("3 · Lo que Cognee registra por sesión", "Las sesiones guardadas en el servidor. Suele estar a cero porque el observer usa la suscripción."));
-  root.append(h("div", { class: "grid" }, kpi({ label: "Sesiones (30 días)", value: num(s.sessions), meta: `${s.abandoned ?? 0} abandonadas` }), kpi({ label: "Tokens", value: num(s.tokens_total), meta: `entrada ${num(s.tokens_in)} · salida ${num(s.tokens_out)}` }), kpi({ label: "Gasto registrado", value: usd(s.total_spend_usd) })));
-  root.append(...section("Salud de la medición", "Comprobaciones para saber si los números son fiables."));
-  root.append(h("div", { class: "grid two" }, h("div", {}, h("h3", {}, "Eventos recibidos"), table([{ t: "Evento", f: (r) => h("code", {}, r.name) }, { t: "Cantidad", n: 1, f: (r) => num(r.count) }], otel.events)),
-    h("div", {}, h("h3", {}, "Conciliación: logs vs. métricas"), table([{ t: "Corrida", f: (r) => r.run }, { t: "Tipo", k: "kind" }, { t: "Logs", n: 1, f: (r) => num(r.logs) }, { t: "Métricas", n: 1, f: (r) => num(r.metrics) }, { t: "Dif.", n: 1, f: (r) => (r.diff_pct == null ? "—" : `${r.diff_pct}%`), tip: "Las métricas suelen quedarse cortas en sesiones breves; los logs son la fuente fiable." }], otel.reconciliation))));
+  root.append(intro("What is a token and what does this screen measure?", "A token is the unit in which the text an AI processes is measured (~3-4 characters). Tokens are counted here, not money: your Claude subscription does not charge per token and its remaining quota cannot be queried from outside. There are three different sources, each measuring something different.",
+    "For a Claude Code session to appear in source 2, it must be opened with «scripts/claude-memory <project>» (or by defining the OTEL_* variables in the terminal). The «env» block of the project settings does not work for this. Normal sessions are not measured."));
+  root.append(...section("1 · What Cognee spends on indexing (the observer)", "Each time Cognee summarizes or extracts concepts, it calls Claude through the observer. This source is complete: no call escapes it."));
+  root.append(h("div", { class: "grid" }, kpi({ label: "Calls", value: num(o.calls), spark: t.observer.by_day.map((d) => d.calls) }), kpi({ label: "Tokens", value: num(o.tokens), meta: `${num(o.avg_tokens)} per call`, spark: t.observer.by_day.map((d) => d.tokens) }),
+    kpi({ label: "Speed (median)", value: `${num(o.p50_ms)} ms`, meta: `p95: ${num(o.p95_ms)} ms`, tip: "p95: 95 % of calls take less than this." })));
+  root.append(h("div", { class: "grid two", style: "margin-top:14px" }, h("div", { class: "card" }, h("h3", {}, "Tokens per day"), barChart(t.observer.by_day, { label: (p) => p.day, value: (p) => p.tokens })),
+    h("div", { class: "card" }, h("h3", {}, "Latest calls"), table([{ t: "Time", f: (r) => (r.ts || "").slice(5, 16).replace("T", " ") }, { t: "Tokens", n: 1, f: (r) => num(r.tokens) }, { t: "Duration", n: 1, f: (r) => `${num(r.duration_ms)} ms` }], (t.observer.recent || []).slice(0, 8)))));
+  root.append(...section("2 · What Claude Code spends (telemetry)", "Each Claude response in the measured sessions: input, output and cache tokens. The cost is the API equivalent, not what your subscription charges."));
+  root.append(h("div", { class: "grid" }, kpi({ label: "Calls", value: num(c.calls), meta: `${c.sessions} sessions` }), kpi({ label: "Total tokens", value: num(c.total), meta: `input ${num(c.input)} · output ${num(c.output)}` }),
+    kpi({ label: "Cache", value: num(c.cache_read), meta: `write ${num(c.cache_creation)}`, tip: "Text that Claude had already seen and reuses more cheaply." }), kpi({ label: "API-equivalent cost", value: usd(c.cost), tip: "Reference: how much it would cost if you paid per use instead of a subscription." })));
+  root.append(h("h3", { style: "margin-top:18px" }, "By run"), table([{ t: "Project", f: (r) => r.project || "—" }, { t: "Run", f: (r) => r.run || "(no run_id)" }, { t: "Var.", f: (r) => r.variant || "—", tip: "A = without memory, B = with memory (comparisons)." }, { t: "Calls", n: 1, k: "calls" }, { t: "Tokens", n: 1, f: (r) => num(r.total) }, { t: "Cost", n: 1, f: (r) => usd(r.cost) }, { t: "Median", n: 1, f: (r) => `${num(r.p50_ms)} ms` }], t.claude_code.by_run));
+  root.append(h("h3", { style: "margin-top:18px" }, "By model"), table([{ t: "Model", k: "model" }, { t: "Calls", n: 1, k: "calls" }, { t: "Tokens", n: 1, f: (r) => num(r.total) }, { t: "Cost", n: 1, f: (r) => usd(r.cost) }], t.claude_code.by_model));
+  root.append(...section("3 · What Cognee records per session", "The sessions saved on the server. It is usually zero because the observer uses the subscription."));
+  root.append(h("div", { class: "grid" }, kpi({ label: "Sessions (30 days)", value: num(s.sessions), meta: `${s.abandoned ?? 0} abandoned` }), kpi({ label: "Tokens", value: num(s.tokens_total), meta: `input ${num(s.tokens_in)} · output ${num(s.tokens_out)}` }), kpi({ label: "Recorded spend", value: usd(s.total_spend_usd) })));
+  root.append(...section("Measurement health", "Checks to know whether the numbers are reliable."));
+  root.append(h("div", { class: "grid two" }, h("div", {}, h("h3", {}, "Events received"), table([{ t: "Event", f: (r) => h("code", {}, r.name) }, { t: "Count", n: 1, f: (r) => num(r.count) }], otel.events)),
+    h("div", {}, h("h3", {}, "Reconciliation: logs vs. metrics"), table([{ t: "Run", f: (r) => r.run }, { t: "Type", k: "kind" }, { t: "Logs", n: 1, f: (r) => num(r.logs) }, { t: "Metrics", n: 1, f: (r) => num(r.metrics) }, { t: "Diff.", n: 1, f: (r) => (r.diff_pct == null ? "—" : `${r.diff_pct}%`), tip: "Metrics tend to fall short in brief sessions; logs are the reliable source." }], otel.reconciliation))));
   return root;
 } };
 
-pages.llamadas = { title: "API y contenedores", sub: "Quién habla con Cognee, con qué frecuencia y si los servicios están sanos.", icon: "pulse", run: async () => {
-  const hours = h("select", {}, [1, 6, 24, 72, 168].map((x) => h("option", { value: x, selected: x === 24 }, `últimas ${x} h`)));
+pages.calls = { title: "API and containers", sub: "Who talks to Cognee, how often and whether the services are healthy.", icon: "pulse", run: async () => {
+  const hours = h("select", {}, [1, 6, 24, 72, 168].map((x) => h("option", { value: x, selected: x === 24 }, `last ${x} h`)));
   const body = h("div", {});
   const load = async () => {
     body.replaceChildren(loading());
     try {
       const [c, a] = await Promise.all([api("/containers"), api(`/api-calls?hours=${hours.value}`)]);
-      const parts = [...section("Contenedores", "Los programas que forman el sistema. Si alguno se reinicia mucho o se queda sin memoria, aparecerá aquí.")];
-      parts.push(c.available ? table([{ t: "Servicio", f: (r) => h("strong", {}, r.service) },
-        { t: "Estado", f: (r) => (r.state === "exited" && r.exit_code === 0 ? pill("completado", "ok") : pill(`${r.state === "running" ? "activo" : r.state}${r.health ? " · " + r.health : ""}`, r.state === "running" && r.health !== "unhealthy" ? "ok" : "bad")) },
-        { t: "CPU", n: 1, f: (r) => (r.cpu_pct == null ? "—" : `${r.cpu_pct}%`) }, { t: "Memoria", n: 1, f: (r) => (r.mem_bytes == null ? "—" : bytes(r.mem_bytes)) }, { t: "Reinicios", n: 1, k: "restarts", tip: "Veces que Docker lo reinició por un fallo." }, { t: "Activo desde", f: (r) => ago(r.started) }], c.containers)
-        : h("div", { class: "empty" }, "Sin acceso a Docker (proxy no configurado)."));
-      if (a.available === false || a.ok === false) parts.push(...section("Llamadas a la API"), h("div", { class: "empty" }, a.error || "Docker no disponible."));
+      const parts = [...section("Containers", "The programs that make up the system. If one restarts a lot or runs out of memory, it will show up here.")];
+      parts.push(c.available ? table([{ t: "Service", f: (r) => h("strong", {}, r.service) },
+        { t: "Status", f: (r) => (r.state === "exited" && r.exit_code === 0 ? pill("completed", "ok") : pill(`${r.state === "running" ? "active" : r.state}${r.health ? " · " + r.health : ""}`, r.state === "running" && r.health !== "unhealthy" ? "ok" : "bad")) },
+        { t: "CPU", n: 1, f: (r) => (r.cpu_pct == null ? "—" : `${r.cpu_pct}%`) }, { t: "Memory", n: 1, f: (r) => (r.mem_bytes == null ? "—" : bytes(r.mem_bytes)) }, { t: "Restarts", n: 1, k: "restarts", tip: "Times Docker restarted it because of a failure." }, { t: "Active since", f: (r) => ago(r.started) }], c.containers)
+        : h("div", { class: "empty" }, "No access to Docker (proxy not configured)."));
+      if (a.available === false || a.ok === false) parts.push(...section("API calls"), h("div", { class: "empty" }, a.error || "Docker not available."));
       else {
-        parts.push(...section(`Llamadas a la API de Cognee · ${num(a.total)} en ${a.hours} h`, a.note),
-          h("div", { class: "grid" }, kpi({ label: "Llamadas", value: num(a.total), meta: `${num(a.health_checks)} chequeos de salud aparte` }), kpi({ label: "Errores", value: num((a.status["4xx"] || 0) + (a.status["5xx"] || 0)), meta: "respuestas 4xx/5xx", tip: "Un 404 suele ser un dataset inexistente; un 5xx, un fallo del servidor." }), ...a.callers.slice(0, 3).map((x) => kpi({ label: "Origen", value: num(x.count), meta: x.caller }))),
-          h("div", { class: "card", style: "margin:14px 0" }, h("h3", {}, "Llamadas por hora"), barChart(a.per_hour, { label: (p) => p.hour.replace("T", " "), value: (p) => p.count })),
-          h("h3", {}, "Por endpoint"), table([{ t: "Qué hace", f: (r) => h("code", {}, `${r.method} ${r.path}`) }, { t: "Llamadas", n: 1, f: (r) => num(r.count) }, { t: "Errores", n: 1, f: (r) => (r.errors ? pill(r.errors, "bad") : "0") },
-            { t: "¿Gasta tokens?", f: (r) => (r.llm ? pill("puede usar Claude", "warn") : "no"), tip: "Los endpoints cognify, improve, remember y memify llaman a Claude." }, { t: "Quién llama", f: (r) => Object.entries(r.callers).map(([k, v]) => `${k} (${v})`).join(", ") }], a.endpoints));
+        parts.push(...section(`Cognee API calls · ${num(a.total)} in ${a.hours} h`, a.note),
+          h("div", { class: "grid" }, kpi({ label: "Calls", value: num(a.total), meta: `${num(a.health_checks)} health checks separately` }), kpi({ label: "Errors", value: num((a.status["4xx"] || 0) + (a.status["5xx"] || 0)), meta: "4xx/5xx responses", tip: "A 404 is usually a nonexistent dataset; a 5xx, a server failure." }), ...a.callers.slice(0, 3).map((x) => kpi({ label: "Source", value: num(x.count), meta: x.caller }))),
+          h("div", { class: "card", style: "margin:14px 0" }, h("h3", {}, "Calls per hour"), barChart(a.per_hour, { label: (p) => p.hour.replace("T", " "), value: (p) => p.count })),
+          h("h3", {}, "By endpoint"), table([{ t: "What it does", f: (r) => h("code", {}, `${r.method} ${r.path}`) }, { t: "Calls", n: 1, f: (r) => num(r.count) }, { t: "Errors", n: 1, f: (r) => (r.errors ? pill(r.errors, "bad") : "0") },
+            { t: "Spends tokens?", f: (r) => (r.llm ? pill("may use Claude", "warn") : "no"), tip: "The cognify, improve, remember and memify endpoints call Claude." }, { t: "Who calls", f: (r) => Object.entries(r.callers).map(([k, v]) => `${k} (${v})`).join(", ") }], a.endpoints));
       }
       body.replaceChildren(...parts);
     } catch (e) { body.replaceChildren(fail(e)); }
   };
   hours.onchange = load; setTimeout(load, 0);
-  return h("div", {}, intro("¿Qué estoy viendo?", "Cada vez que un programa usa la memoria (los hooks de Claude Code, el MCP, tus scripts) hace una llamada a la API de Cognee, que corre en tu Mac. Aquí se cuentan, se agrupan por endpoint y se muestra quién las hizo. Sirve para detectar llamadas de más, errores y consumo anormal."), h("div", { class: "row" }, h("span", { class: "muted" }, "Periodo"), hours), body);
+  return h("div", {}, intro("What am I looking at?", "Each time a program uses the memory (the Claude Code hooks, the MCP, your scripts) it makes a call to the Cognee API, which runs on your Mac. Here they are counted, grouped by endpoint, and it shows who made them. Useful for detecting unnecessary calls, errors and abnormal consumption."), h("div", { class: "row" }, h("span", { class: "muted" }, "Period"), hours), body);
 } };
 
-pages.sync = { title: "Sincronización", sub: "Qué documentos están indexados y cuál fue su último estado.", icon: "sync", run: async () => {
+pages.sync = { title: "Synchronization", sub: "Which documents are indexed and what their last status was.", icon: "sync", run: async () => {
   const rows = await api("/registry");
   const bad = rows.filter((r) => r.status !== "indexed").length;
-  return h("div", {}, intro("¿Qué es la sincronización?", "Tus documentos Markdown son la fuente de verdad. La sincronización los copia a la memoria solo cuando cambian (comparando un «hash», la huella del archivo) y comprueba que se pueden recuperar antes de marcarlos como indexados.", "Se lanza a mano con «memctl.sh sync <repo> --apply», una vez por hito de trabajo, no tras cada edición."),
-    h("div", { class: "grid" }, kpi({ label: "Documentos registrados", value: num(rows.length) }), kpi({ label: "Indexados", value: num(rows.length - bad), meta: bad ? `${bad} pendientes` : "todos" })),
-    ...section("Registro", "Un documento aparece «indexado» solo si una búsqueda lo recuperó."), table([{ t: "Proyecto", k: "project" }, { t: "Documento", k: "path" }, { t: "Estado", f: (r) => pill(r.status === "indexed" ? "indexado" : r.status, r.status === "indexed" ? "ok" : "warn") }, { t: "Hash", f: (r) => h("code", {}, r.hash), tip: "Huella del archivo: si cambia, se reindexa." }, { t: "Commit", k: "commit" }, { t: "Actualizado", f: (r) => ago(r.updated) }, { t: "Error", f: (r) => r.last_error || "—" }], rows));
+  return h("div", {}, intro("What is synchronization?", "Your Markdown documents are the source of truth. Synchronization copies them to the memory only when they change (by comparing a «hash», the file's fingerprint) and checks that they can be retrieved before marking them as indexed.", "It is launched by hand with «memctl.sh sync <repo> --apply», once per work milestone, not after every edit."),
+    h("div", { class: "grid" }, kpi({ label: "Registered documents", value: num(rows.length) }), kpi({ label: "Indexed", value: num(rows.length - bad), meta: bad ? `${bad} pending` : "all" })),
+    ...section("Registry", "A document appears as «indexed» only if a search retrieved it."), table([{ t: "Project", k: "project" }, { t: "Document", k: "path" }, { t: "Status", f: (r) => pill(r.status === "indexed" ? "indexed" : r.status, r.status === "indexed" ? "ok" : "warn") }, { t: "Hash", f: (r) => h("code", {}, r.hash), tip: "File fingerprint: if it changes, it is reindexed." }, { t: "Commit", k: "commit" }, { t: "Updated", f: (r) => ago(r.updated) }, { t: "Error", f: (r) => r.last_error || "—" }], rows));
 } };
 
 const meter = (pct, label, detail) => h("div", { class: "meter" }, h("div", { class: "meter-top" }, h("span", {}, label), h("b", {}, pct == null ? "—" : `${Math.round(pct)}%`)),
   h("div", { class: "meter-bar" }, h("i", { class: pct >= 90 ? "bad" : pct >= 75 ? "warn" : "", style: `width:${Math.min(100, Math.max(0, pct || 0))}%` })), detail ? h("div", { class: "muted small" }, detail) : null);
 const lineChart = (vals, { max, fmt = (v) => `${Math.round(v)}%`, label = "" } = {}) => {
-  if (vals.length < 2) return h("div", { class: "empty" }, "Aún no hay suficientes muestras.");
+  if (vals.length < 2) return h("div", { class: "empty" }, "Not enough samples yet.");
   const w = 600, hg = 110, mx = max || Math.max(1, ...vals);
   const pts = vals.map((v, i) => `${(i / (vals.length - 1)) * w},${hg - 4 - (Math.min(v, mx) / mx) * (hg - 8)}`).join(" ");
   const s = document.createElementNS(SVGNS, "svg"); s.setAttribute("viewBox", `0 0 ${w} ${hg}`); s.setAttribute("preserveAspectRatio", "none"); s.setAttribute("class", "line"); s.setAttribute("role", "img"); s.setAttribute("aria-label", label);
   const pl = document.createElementNS(SVGNS, "polyline"); pl.setAttribute("points", pts); pl.setAttribute("fill", "none"); pl.setAttribute("stroke", "var(--brand)"); pl.setAttribute("stroke-width", 2); pl.setAttribute("vector-effect", "non-scaling-stroke"); pl.setAttribute("stroke-linejoin", "round");
   s.append(pl);
-  return h("div", {}, s, h("div", { class: "axis" }, h("span", {}, "más antiguo"), h("span", {}, `ahora: ${fmt(vals[vals.length - 1])} · máx. ${fmt(Math.max(...vals))}`)));
+  return h("div", {}, s, h("div", { class: "axis" }, h("span", {}, "oldest"), h("span", {}, `now: ${fmt(vals[vals.length - 1])} · max. ${fmt(Math.max(...vals))}`)));
 };
 
-pages.uso = { title: "Uso de la memoria", sub: "Cuándo se consulta la memoria y cómo la usa el sistema.", icon: "search", run: async () => {
-  const days = h("select", {}, [1, 7, 14, 30].map((x) => h("option", { value: x, selected: x === 14 }, `últimos ${x} d`)));
+pages.usage = { title: "Memory usage", sub: "When the memory is queried and how the system uses it.", icon: "search", run: async () => {
+  const days = h("select", {}, [1, 7, 14, 30].map((x) => h("option", { value: x, selected: x === 14 }, `last ${x} d`)));
   const body = h("div", {});
   const load = async () => {
     body.replaceChildren(loading());
     try {
       const u = await api(`/usage?days=${days.value}`);
-      if (!u.file_present) { body.replaceChildren(h("div", { class: "callout" }, icon("alert", 20), h("div", {}, h("b", {}, "Aún no hay registro de uso"), h("p", {}, "Se genera con scripts/usage_scan.py (se actualiza solo al cerrar cada sesión). Ejecútalo una vez: python3 -I <KIT>/scripts/usage_scan.py")))); return; }
+      if (!u.file_present) { body.replaceChildren(h("div", { class: "callout" }, icon("alert", 20), h("div", {}, h("b", {}, "There is no usage record yet"), h("p", {}, "It is generated by scripts/usage_scan.py (it updates itself when each session closes). Run it once: python3 -I <KIT>/scripts/usage_scan.py")))); return; }
       const r = u.recall, s = u.sessions, pct = (a, b) => (b ? Math.round((100 * a) / b) : 0);
       const verdict = [];
-      verdict.push(s.total ? [s.with_briefing >= s.total * 0.8 ? "ok" : "warn", `Al abrir sesión, el briefing se inyectó en ${s.with_briefing} de ${s.total} sesiones (${pct(s.with_briefing, s.total)} %). ${s.with_briefing >= s.total * 0.8 ? "El sistema de continuidad está funcionando." : "Algunas sesiones empezaron sin briefing: revisa los hooks de ese proyecto."}`] : ["warn", "No hay sesiones en este periodo."]);
-      verdict.push(r.total ? ["ok", `Claude consultó la memoria ${r.total} ${r.total === 1 ? "vez" : "veces"} (${r.via_mcp} por herramienta MCP, ${r.via_skill} por la skill). Las consultas ocurren cuando el briefing no alcanza.`] : ["warn", "Nadie ha consultado la memoria en este periodo. Es normal si el briefing bastó, pero si pasa siempre, la memoria profunda no se está usando."]);
-      if (r.answered) verdict.push([r.errors ? "warn" : "ok", `${r.ok} de ${r.answered} consultas por MCP devolvieron contenido${r.errors ? `; ${r.errors} fallaron (mira la tabla: ‘con error’)` : ""}.${r.avg_chars ? ` Tamaño medio de respuesta: ${num(r.avg_chars)} caracteres.` : ""} Tiempo mediano: ${r.p50_s ?? "—"} s.`]);
-      if (u.plugin.asked) verdict.push([u.plugin.hits ? "ok" : "warn", `El plugin midió que en ${u.plugin.hits} de ${u.plugin.asked} consultas de sus hooks hubo resultado útil (${pct(u.plugin.hits, u.plugin.asked)} %).`]);
-      verdict.push(["info", "Ojo: este registro prueba que la memoria SE USA y que responde. Que ayude de verdad se comprueba con la evaluación (memctl.sh eval) y comparando costo con y sin memoria."]);
+      verdict.push(s.total ? [s.with_briefing >= s.total * 0.8 ? "ok" : "warn", `When opening a session, the briefing was injected in ${s.with_briefing} of ${s.total} sessions (${pct(s.with_briefing, s.total)} %). ${s.with_briefing >= s.total * 0.8 ? "The continuity system is working." : "Some sessions started without a briefing: check the hooks of that project."}`] : ["warn", "There are no sessions in this period."]);
+      verdict.push(r.total ? ["ok", `Claude queried the memory ${r.total} ${r.total === 1 ? "time" : "times"} (${r.via_mcp} via MCP tool, ${r.via_skill} via the skill). Queries happen when the briefing is not enough.`] : ["warn", "Nobody has queried the memory in this period. This is normal if the briefing was enough, but if it always happens, the deep memory is not being used."]);
+      if (r.answered) verdict.push([r.errors ? "warn" : "ok", `${r.ok} of ${r.answered} MCP queries returned content${r.errors ? `; ${r.errors} failed (see the table: ‘with error’)` : ""}.${r.avg_chars ? ` Average response size: ${num(r.avg_chars)} characters.` : ""} Median time: ${r.p50_s ?? "—"} s.`]);
+      if (u.plugin.asked) verdict.push([u.plugin.hits ? "ok" : "warn", `The plugin measured that in ${u.plugin.hits} of ${u.plugin.asked} queries from its hooks there was a useful result (${pct(u.plugin.hits, u.plugin.asked)} %).`]);
+      verdict.push(["info", "Note: this record proves that the memory IS USED and that it responds. Whether it really helps is checked with the evaluation (memctl.sh eval) and by comparing cost with and without memory."]);
       body.replaceChildren(
         h("div", { class: "grid" },
-          kpi({ label: "Briefings inyectados", value: num(u.briefing.count), meta: `≈ ${num(u.briefing.avg_chars)} caracteres c/u`, tip: "Resumen automático (decisiones, reglas, pendientes) que se carga al abrir una sesión, sin consultar Cognee." }),
-          kpi({ label: "Consultas a la memoria", value: num(r.total), meta: `${r.via_mcp} MCP · ${r.via_skill} skill`, tip: "Veces que Claude buscó en la memoria profunda (Cognee) porque el briefing no alcanzaba." }),
-          kpi({ label: "Consultas con resultado", value: r.answered ? `${pct(r.ok, r.answered)} %` : "—", meta: `${r.ok} de ${r.answered}`, tip: "Consultas por MCP que devolvieron contenido sin error." }),
-          kpi({ label: "Sesiones con consulta", value: `${s.with_recall} / ${s.total}`, meta: "de las sesiones del periodo" }),
-          kpi({ label: "Escrituras a la memoria", value: num(u.counts.write || 0), meta: "handoff / documentar / remember" })),
-        ...section("¿Está funcionando?", "Lectura automática de los datos, en palabras simples."),
+          kpi({ label: "Briefings injected", value: num(u.briefing.count), meta: `≈ ${num(u.briefing.avg_chars)} characters each`, tip: "Automatic summary (decisions, rules, pending items) that is loaded when a session opens, without querying Cognee." }),
+          kpi({ label: "Memory queries", value: num(r.total), meta: `${r.via_mcp} MCP · ${r.via_skill} skill`, tip: "Times Claude searched the deep memory (Cognee) because the briefing was not enough." }),
+          kpi({ label: "Queries with a result", value: r.answered ? `${pct(r.ok, r.answered)} %` : "—", meta: `${r.ok} of ${r.answered}`, tip: "MCP queries that returned content without an error." }),
+          kpi({ label: "Sessions with a query", value: `${s.with_recall} / ${s.total}`, meta: "of the sessions in the period" }),
+          kpi({ label: "Writes to memory", value: num(u.counts.write || 0), meta: "handoff / document / remember" })),
+        ...section("Is it working?", "Automatic reading of the data, in simple words."),
         h("div", {}, verdict.map(([k, t]) => h("div", { class: `advice ${k === "ok" ? "tip" : k === "warn" ? "warn" : ""}` }, icon(k === "warn" ? "alert" : k === "ok" ? "check" : "info", 18), h("div", {}, t)))),
-        ...section("Actividad por día", "Barras: consultas a la memoria. El briefing se inyecta una vez por sesión."),
-        h("div", { class: "grid two" }, h("div", { class: "card" }, h("h3", {}, "Consultas por día"), barChart(u.per_day, { label: (p) => p.day, value: (p) => p.recall || 0 })),
-          h("div", { class: "card" }, h("h3", {}, "Briefings por día"), barChart(u.per_day, { label: (p) => p.day, value: (p) => p.briefing || 0 }))),
-        ...section("Últimos eventos", "Qué se preguntó y qué pasó. Solo se guarda la pregunta recortada y el tamaño de la respuesta, nunca el texto devuelto."),
-        table([{ t: "Cuándo", f: (e) => ago(e.when) }, { t: "Proyecto", k: "project" },
-          { t: "Qué", f: (e) => ({ recall: pill("consulta", "brand"), write: pill("escritura", "warn"), briefing: pill("briefing") })[e.kind] },
-          { t: "Vía", f: (e) => (e.via || "hook").replace("skill:project-memory-", "skill ") },
-          { t: "Pregunta", f: (e) => (e.kind === "briefing" ? `${num(e.chars)} caracteres inyectados` : e.query || "—") },
-          { t: "Resultado", f: (e) => (e.kind !== "recall" || !("ok" in e) ? "—" : e.ok ? pill(`${num(e.chars)} car.`, "ok") : pill("con error", "bad")) },
-          { t: "Tiempo", n: 1, f: (e) => (e.latency_s != null ? `${e.latency_s} s` : "—") }], u.recent, { empty: "Sin eventos en este periodo." }));
+        ...section("Activity per day", "Bars: memory queries. The briefing is injected once per session."),
+        h("div", { class: "grid two" }, h("div", { class: "card" }, h("h3", {}, "Queries per day"), barChart(u.per_day, { label: (p) => p.day, value: (p) => p.recall || 0 })),
+          h("div", { class: "card" }, h("h3", {}, "Briefings per day"), barChart(u.per_day, { label: (p) => p.day, value: (p) => p.briefing || 0 }))),
+        ...section("Latest events", "What was asked and what happened. Only the truncated question and the size of the response are stored, never the returned text."),
+        table([{ t: "When", f: (e) => ago(e.when) }, { t: "Project", k: "project" },
+          { t: "What", f: (e) => ({ recall: pill("query", "brand"), write: pill("write", "warn"), briefing: pill("briefing") })[e.kind] },
+          { t: "Via", f: (e) => (e.via || "hook").replace("skill:project-memory-", "skill ") },
+          { t: "Question", f: (e) => (e.kind === "briefing" ? `${num(e.chars)} characters injected` : e.query || "—") },
+          { t: "Result", f: (e) => (e.kind !== "recall" || !("ok" in e) ? "—" : e.ok ? pill(`${num(e.chars)} chars.`, "ok") : pill("with error", "bad")) },
+          { t: "Time", n: 1, f: (e) => (e.latency_s != null ? `${e.latency_s} s` : "—") }], u.recent, { empty: "No events in this period." }));
     } catch (e) { body.replaceChildren(fail(e)); }
   };
   days.onchange = load; setTimeout(load, 0);
-  return h("div", {}, intro("¿Qué estoy viendo?", "Para saber si la memoria sirve hay que ver si se usa. Esta página lee las sesiones de Claude Code y cuenta cuándo se inyectó el briefing al empezar, cuándo Claude buscó en la memoria profunda y con qué resultado. No guarda las respuestas, solo cuándo, qué se preguntó (recortado) y cuánto devolvió.",
-    "Los datos los genera scripts/usage_scan.py leyendo ~/.claude/projects (solo lectura) y se refrescan solos al cerrar cada sesión. Aquí aparecen todas tus sesiones de Claude Code, no solo las lanzadas con el launcher de telemetría."),
-    h("div", { class: "row" }, h("span", { class: "muted" }, "Periodo"), days), body);
+  return h("div", {}, intro("What am I looking at?", "To know whether the memory is useful, you have to see whether it is used. This page reads the Claude Code sessions and counts when the briefing was injected at the start, when Claude searched the deep memory and with what result. It does not store the responses, only when, what was asked (truncated) and how much was returned.",
+    "The data is generated by scripts/usage_scan.py reading ~/.claude/projects (read-only) and refreshes itself when each session closes. All your Claude Code sessions appear here, not just those launched with the telemetry launcher."),
+    h("div", { class: "row" }, h("span", { class: "muted" }, "Period"), days), body);
 } };
 
-pages.recursos = { title: "Recursos del equipo", sub: "Cuánta carga tiene tu Mac y Docker ahora mismo.", icon: "layers", run: async () => {
+pages.resources = { title: "System resources", sub: "How much load your Mac and Docker have right now.", icon: "layers", run: async () => {
   const body = h("div", {});
   const load = async () => {
     try {
       const r = await api("/resources"), hs = r.host, dk = r.docker, parts = [];
-      if (!hs.available) parts.push(...section("Tu Mac", "Solo se mide cuando tú lo pides: no hay ningún proceso midiendo en segundo plano."), h("div", { class: "card row" }, h("div", {}, h("b", {}, "Sin medición todavía"), h("div", { class: "muted small" }, "Pulsa el botón para tomar una foto de CPU, memoria, disco y programas (tarda ~2 s).")), h("span", { class: "spacer" }), measureBtn()));
+      if (!hs.available) parts.push(...section("Your Mac", "It is only measured when you ask: there is no process measuring in the background."), h("div", { class: "card row" }, h("div", {}, h("b", {}, "No measurement yet"), h("div", { class: "muted small" }, "Press the button to take a snapshot of CPU, memory, disk and programs (takes ~2 s).")), h("span", { class: "spacer" }), measureBtn()));
       else {
         const L = hs.latest, m = L.memory, cpu = L.cpu ? L.cpu.used : null;
-        parts.push(h("div", { class: "row", style: "margin-top:26px" }, h("div", {}, h("h2", { style: "margin:0" }, `Tu Mac · ${L.model} · macOS ${L.os}`), h("p", { class: "hint", style: "margin:2px 0 0" }, `Medido ${hs.age_s < 90 ? "hace instantes" : `hace ${Math.round(hs.age_s / 60)} min`} (foto puntual, no en vivo) · encendido hace ${Math.round((L.uptime_s || 0) / 3600)} h${L.battery ? ` · batería ${L.battery.pct} % (${L.battery.on_ac ? "conectado" : "con batería"})` : ""}`)), h("span", { class: "spacer" }), measureBtn()));
+        parts.push(h("div", { class: "row", style: "margin-top:26px" }, h("div", {}, h("h2", { style: "margin:0" }, `Your Mac · ${L.model} · macOS ${L.os}`), h("p", { class: "hint", style: "margin:2px 0 0" }, `Measured ${hs.age_s < 90 ? "just now" : `${Math.round(hs.age_s / 60)} min ago`} (point-in-time snapshot, not live) · up for ${Math.round((L.uptime_s || 0) / 3600)} h${L.battery ? ` · battery ${L.battery.pct} % (${L.battery.on_ac ? "plugged in" : "on battery"})` : ""}`)), h("span", { class: "spacer" }), measureBtn()));
         parts.push(h("div", { class: "grid" },
-          h("div", { class: "card" }, meter(cpu, "Procesador (CPU)", `${L.cpu_count} núcleos · usuario ${L.cpu?.user ?? "—"} % · sistema ${L.cpu?.sys ?? "—"} %`)),
-          h("div", { class: "card" }, meter((100 * m.used) / m.total, "Memoria (RAM)", `${bytes(m.used)} de ${bytes(m.total)} · comprimida ${bytes(m.compressed)}`)),
-          h("div", { class: "card" }, meter(m.swap_total ? (100 * m.swap_used) / m.swap_total : 0, "Swap (memoria en disco)", `${bytes(m.swap_used)} de ${bytes(m.swap_total)}`)),
-          h("div", { class: "card" }, meter((100 * L.disk.used) / L.disk.total, "Disco", `${bytes(L.disk.free)} libres de ${bytes(L.disk.total)}`)),
-          kpi({ label: "Carga del sistema", value: L.load[0].toFixed(2), meta: `5 min ${L.load[1].toFixed(2)} · 15 min ${L.load[2].toFixed(2)}`, tip: "Procesos esperando CPU. Si es mayor que el número de núcleos de forma sostenida, el Mac está saturado." }),
-          kpi({ label: "Presión de memoria", value: m.free_pct == null ? "—" : `${m.free_pct} % libre`, meta: m.free_pct != null && m.free_pct < 20 ? "Alta: el Mac está justo de memoria" : "Normal", tip: "Medida de macOS: cuanta más memoria libre, mejor." })));
+          h("div", { class: "card" }, meter(cpu, "Processor (CPU)", `${L.cpu_count} cores · user ${L.cpu?.user ?? "—"} % · system ${L.cpu?.sys ?? "—"} %`)),
+          h("div", { class: "card" }, meter((100 * m.used) / m.total, "Memory (RAM)", `${bytes(m.used)} of ${bytes(m.total)} · compressed ${bytes(m.compressed)}`)),
+          h("div", { class: "card" }, meter(m.swap_total ? (100 * m.swap_used) / m.swap_total : 0, "Swap (memory on disk)", `${bytes(m.swap_used)} of ${bytes(m.swap_total)}`)),
+          h("div", { class: "card" }, meter((100 * L.disk.used) / L.disk.total, "Disk", `${bytes(L.disk.free)} free of ${bytes(L.disk.total)}`)),
+          kpi({ label: "System load", value: L.load[0].toFixed(2), meta: `5 min ${L.load[1].toFixed(2)} · 15 min ${L.load[2].toFixed(2)}`, tip: "Processes waiting for CPU. If it is consistently greater than the number of cores, the Mac is saturated." }),
+          kpi({ label: "Memory pressure", value: m.free_pct == null ? "—" : `${m.free_pct} % free`, meta: m.free_pct != null && m.free_pct < 20 ? "High: the Mac is running tight on memory" : "Normal", tip: "macOS measure: the more free memory, the better." })));
         parts.push(h("div", { class: "grid two", style: "margin-top:14px" },
-          h("div", { class: "card" }, h("h3", {}, "CPU en tus mediciones"), lineChart(hs.history.map((x) => x.cpu ?? 0), { max: 100, label: "CPU" })),
-          h("div", { class: "card" }, h("h3", {}, "Memoria en tus mediciones"), lineChart(hs.history.map((x) => (100 * x.mem_used) / m.total), { max: 100, label: "Memoria" }))));
+          h("div", { class: "card" }, h("h3", {}, "CPU in your measurements"), lineChart(hs.history.map((x) => x.cpu ?? 0), { max: 100, label: "CPU" })),
+          h("div", { class: "card" }, h("h3", {}, "Memory in your measurements"), lineChart(hs.history.map((x) => (100 * x.mem_used) / m.total), { max: 100, label: "Memory" }))));
         parts.push(h("div", { class: "grid two", style: "margin-top:14px" },
-          h("div", {}, h("h3", {}, "Quién gasta más CPU"), table([{ t: "Programa", k: "name" }, { t: "CPU", n: 1, f: (p) => `${p.cpu.toFixed(1)} %` }, { t: "Procesos", n: 1, k: "n" }], L.procs.by_cpu)),
-          h("div", {}, h("h3", {}, "Quién gasta más memoria"), table([{ t: "Programa", k: "name" }, { t: "Memoria", n: 1, f: (p) => bytes(p.rss) }, { t: "Procesos", n: 1, k: "n" }], L.procs.by_mem))));
+          h("div", {}, h("h3", {}, "Who uses the most CPU"), table([{ t: "Program", k: "name" }, { t: "CPU", n: 1, f: (p) => `${p.cpu.toFixed(1)} %` }, { t: "Processes", n: 1, k: "n" }], L.procs.by_cpu)),
+          h("div", {}, h("h3", {}, "Who uses the most memory"), table([{ t: "Program", k: "name" }, { t: "Memory", n: 1, f: (p) => bytes(p.rss) }, { t: "Processes", n: 1, k: "n" }], L.procs.by_mem))));
       }
-      if (!dk.available) parts.push(...section("Docker"), h("div", { class: "empty" }, dk.error || "Sin acceso a Docker."));
+      if (!dk.available) parts.push(...section("Docker"), h("div", { class: "empty" }, dk.error || "No access to Docker."));
       else {
         const e = dk.engine, u = dk.usage, d = dk.disk;
-        parts.push(...section(`Docker · motor ${e.version}`, `La máquina virtual de Docker tiene ${e.cpus} CPU y ${bytes(e.mem_total)} de memoria. ${e.running} de ${e.containers} contenedores en marcha.`));
+        parts.push(...section(`Docker · engine ${e.version}`, `The Docker virtual machine has ${e.cpus} CPUs and ${bytes(e.mem_total)} of memory. ${e.running} of ${e.containers} containers running.`));
         parts.push(h("div", { class: "grid" },
-          h("div", { class: "card" }, meter((100 * u.mem_used) / e.mem_total, "Memoria de la VM de Docker", `${bytes(u.mem_used)} de ${bytes(e.mem_total)} usados por los contenedores`)),
-          h("div", { class: "card" }, meter(u.cpu_pct_sum / e.cpus, "CPU de la VM de Docker", `${u.cpu_pct_sum} % de un núcleo sumado (${e.cpus} núcleos)`)),
-          kpi({ label: "Imágenes", value: bytes(d.images_bytes), meta: `${d.images} imágenes`, tip: "Programas descargados o construidos. Se pueden reconstruir." }),
-          kpi({ label: "Volúmenes (tus datos)", value: bytes(d.volumes_bytes), meta: "Postgres, grafos, modelos", tip: "Aquí viven los datos de la memoria. No los borres." }),
-          kpi({ label: "Caché de construcción", value: bytes(d.build_cache_bytes), meta: "se puede limpiar sin perder datos", tip: "Restos de construir imágenes. docker builder prune la libera." })));
-        parts.push(h("h3", { style: "margin-top:18px" }, "Contenedores"), table([{ t: "Contenedor", f: (c) => h("strong", {}, c.service || c.name) }, { t: "Estado", f: (c) => pill(`${c.state === "running" ? "activo" : c.state}${c.health ? " · " + c.health : ""}`, c.state === "running" && c.health !== "unhealthy" ? "ok" : "") },
-          { t: "CPU", n: 1, f: (c) => (c.cpu_pct == null ? "—" : `${c.cpu_pct} %`) }, { t: "Memoria", n: 1, f: (c) => (c.mem_bytes == null ? "—" : `${bytes(c.mem_bytes)}${c.mem_limit && c.mem_limit < e.mem_total ? " / " + bytes(c.mem_limit) : ""}`) }, { t: "Reinicios", n: 1, f: (c) => c.restarts ?? "—" }], dk.containers));
-        parts.push(h("h3", { style: "margin-top:18px" }, "Volúmenes más grandes"), table([{ t: "Volumen", f: (v) => h("code", {}, v.name.length > 46 ? v.name.slice(0, 46) + "…" : v.name) }, { t: "Tamaño", n: 1, f: (v) => (v.bytes < 0 ? "—" : bytes(v.bytes)) }], d.volumes));
+          h("div", { class: "card" }, meter((100 * u.mem_used) / e.mem_total, "Docker VM memory", `${bytes(u.mem_used)} of ${bytes(e.mem_total)} used by the containers`)),
+          h("div", { class: "card" }, meter(u.cpu_pct_sum / e.cpus, "Docker VM CPU", `${u.cpu_pct_sum} % of one core summed (${e.cpus} cores)`)),
+          kpi({ label: "Images", value: bytes(d.images_bytes), meta: `${d.images} images`, tip: "Downloaded or built programs. They can be rebuilt." }),
+          kpi({ label: "Volumes (your data)", value: bytes(d.volumes_bytes), meta: "Postgres, graphs, models", tip: "The memory's data lives here. Do not delete it." }),
+          kpi({ label: "Build cache", value: bytes(d.build_cache_bytes), meta: "can be cleaned without losing data", tip: "Leftovers from building images. docker builder prune frees it." })));
+        parts.push(h("h3", { style: "margin-top:18px" }, "Containers"), table([{ t: "Container", f: (c) => h("strong", {}, c.service || c.name) }, { t: "Status", f: (c) => pill(`${c.state === "running" ? "active" : c.state}${c.health ? " · " + c.health : ""}`, c.state === "running" && c.health !== "unhealthy" ? "ok" : "") },
+          { t: "CPU", n: 1, f: (c) => (c.cpu_pct == null ? "—" : `${c.cpu_pct} %`) }, { t: "Memory", n: 1, f: (c) => (c.mem_bytes == null ? "—" : `${bytes(c.mem_bytes)}${c.mem_limit && c.mem_limit < e.mem_total ? " / " + bytes(c.mem_limit) : ""}`) }, { t: "Restarts", n: 1, f: (c) => c.restarts ?? "—" }], dk.containers));
+        parts.push(h("h3", { style: "margin-top:18px" }, "Largest volumes"), table([{ t: "Volume", f: (v) => h("code", {}, v.name.length > 46 ? v.name.slice(0, 46) + "…" : v.name) }, { t: "Size", n: 1, f: (v) => (v.bytes < 0 ? "—" : bytes(v.bytes)) }], d.volumes));
       }
       body.replaceChildren(...parts);
     } catch (e) { body.replaceChildren(fail(e)); }
   };
-  const measureBtn = () => h("button", { onclick: async (e) => { const b = e.currentTarget; b.disabled = true; b.textContent = "Midiendo…"; try { await api("/resources/host", { method: "POST" }); } catch (x) { alert(x.message); } load(); } }, "Medir el Mac ahora");
+  const measureBtn = () => h("button", { onclick: async (e) => { const b = e.currentTarget; b.disabled = true; b.textContent = "Measuring…"; try { await api("/resources/host", { method: "POST" }); } catch (x) { alert(x.message); } load(); } }, "Measure the Mac now");
   body.replaceChildren(loading()); setTimeout(load, 0);
-  return h("div", {}, intro("¿Qué estoy viendo?", "La carga real de la máquina donde corre todo: tu Mac (procesador, memoria, disco) y Docker (la mini‑máquina que ejecuta la memoria y sus contenedores). Sirve para saber si hay margen, si algo está saturando el equipo y cuánto espacio ocupan los datos. Docker se lee al abrir la página; el Mac solo se mide cuando pulsas «Medir el Mac ahora». No hay nada midiendo en segundo plano, así que no ralentiza tu equipo.",
-    "Un contenedor no puede ver el Mac, así que al pulsar el botón el panel le pide a launchd que ejecute host_stats.py una sola vez (~2 s) y termine. En reposo no hay ningún proceso ni consumo. Los datos de Docker vienen del propio motor, por un proxy de solo lectura."), body);
+  return h("div", {}, intro("What am I looking at?", "The real load of the machine where everything runs: your Mac (processor, memory, disk) and Docker (the mini‑machine that runs the memory and its containers). It is useful for knowing whether there is headroom, whether something is saturating the machine and how much space the data takes up. Docker is read when the page is opened; the Mac is only measured when you press «Measure the Mac now». Nothing is measuring in the background, so it does not slow down your machine.",
+    "A container cannot see the Mac, so when you press the button the panel asks launchd to run host_stats.py just once (~2 s) and exit. At rest there is no process or consumption. The Docker data comes from the engine itself, through a read-only proxy."), body);
 } };
 
-pages.guia = { title: "Guía y glosario", sub: "Todo lo que necesitas para leer este panel.", icon: "info", run: async () => h("div", {},
-  intro("¿Qué es Management Memory?", "Un panel de control, de solo lectura, para entender y vigilar la memoria que usa tu IA: cuánto conocimiento hay por proyecto, qué espacio ocupa, qué cuesta mantenerla y si todo funciona. No modifica nada: sirve para tomar decisiones."),
-  ...section("¿Qué es local y qué sale de tu Mac?", "Todo corre en tu Mac. Solo un paso usa un servicio externo."),
-  h("div", { class: "grid two" }, h("div", { class: "card" }, h("h3", {}, "Local (no sale de tu Mac)"), h("ul", {}, h("li", {}, "Cognee, la base de datos, el MCP y este panel."), h("li", {}, "Crear los vectores (embeddings): lo hace un modelo local."), h("li", {}, "Buscar: tu pregunta se convierte en vector y se compara en PostgreSQL."))),
-    h("div", { class: "card" }, h("h3", {}, "Sale a Claude (Anthropic)"), h("ul", {}, h("li", {}, "Al indexar: los fragmentos se envían a Claude (vía el observer) para resumirlos y extraer conceptos. Gasta tokens."), h("li", {}, "Al preguntar: el texto recuperado se incluye en tu conversación con Claude Code.")))),
-  ...section("Cómo se conecta todo", "De tu documento a una respuesta."), h("div", { class: "card" }, h("ol", { class: "steps" },
-    h("li", {}, h("b", {}, "Escribes un documento "), "(Markdown) en tu proyecto."),
-    h("li", {}, h("b", {}, "La sincronización lo envía a Cognee "), "solo si cambió."),
-    h("li", {}, h("b", {}, "Cognee lo corta en fragmentos, "), "calcula sus vectores en local y pide a Claude (vía el observer) resúmenes y conceptos: aquí se gastan tokens."),
-    h("li", {}, h("b", {}, "Se guardan los vectores "), "en PostgreSQL y el grafo en su propio archivo."),
-    h("li", {}, h("b", {}, "Cuando Claude Code pregunta algo, "), "la pregunta se convierte en un vector y se devuelven los fragmentos más cercanos (sin gastar tokens)."))),
-  ...section("Qué hace cada sección"), h("div", { class: "grid two" }, [["Resumen", "Salud y números clave."], ["Bases de conocimiento", "Tamaño y costo por proyecto; avisos para decidir qué compactar."], ["Vectores", "Qué huellas se guardan y cuánto pesan."], ["Grafo", "El mapa de conceptos."], ["PostgreSQL", "La base de datos, en solo lectura."], ["Búsqueda", "Prueba la recuperación."], ["Uso de la memoria", "Cuándo se consulta y si responde: prueba de que funciona."], ["Recursos del equipo", "Foto de la carga del Mac (bajo demanda) y de Docker."], ["Tokens y costo", "Consumo de IA, de tres fuentes."], ["API y contenedores", "Quién llama a Cognee y salud de los servicios."]].map(([a, b]) => h("div", { class: "card" }, h("b", {}, a), h("div", { class: "muted" }, b)))),
-  ...section("Glosario"), h("div", { class: "card" }, h("dl", { class: "gloss" }, GLOSSARY.flatMap(([t, d]) => [h("dt", {}, t), h("dd", {}, d)])))) };
+pages.guide = { title: "Guide and glossary", sub: "Everything you need to read this panel.", icon: "info", run: async () => h("div", {},
+  intro("What is Management Memory?", "A read-only control panel to understand and monitor the memory your AI uses: how much knowledge there is per project, how much space it takes, what it costs to maintain and whether everything works. It does not modify anything: it is for making decisions."),
+  ...section("What is local and what leaves your Mac?", "Everything runs on your Mac. Only one step uses an external service."),
+  h("div", { class: "grid two" }, h("div", { class: "card" }, h("h3", {}, "Local (does not leave your Mac)"), h("ul", {}, h("li", {}, "Cognee, the database, the MCP and this panel."), h("li", {}, "Creating the vectors (embeddings): done by a local model."), h("li", {}, "Searching: your question is converted into a vector and compared in PostgreSQL."))),
+    h("div", { class: "card" }, h("h3", {}, "Goes out to Claude (Anthropic)"), h("ul", {}, h("li", {}, "When indexing: the fragments are sent to Claude (via the observer) to summarize them and extract concepts. It spends tokens."), h("li", {}, "When asking: the retrieved text is included in your conversation with Claude Code.")))),
+  ...section("How it all connects", "From your document to an answer."), h("div", { class: "card" }, h("ol", { class: "steps" },
+    h("li", {}, h("b", {}, "You write a document "), "(Markdown) in your project."),
+    h("li", {}, h("b", {}, "Synchronization sends it to Cognee "), "only if it changed."),
+    h("li", {}, h("b", {}, "Cognee cuts it into fragments, "), "computes their vectors locally and asks Claude (via the observer) for summaries and concepts: this is where tokens are spent."),
+    h("li", {}, h("b", {}, "The vectors are stored "), "in PostgreSQL and the graph in its own file."),
+    h("li", {}, h("b", {}, "When Claude Code asks something, "), "the question is converted into a vector and the closest fragments are returned (without spending tokens)."))),
+  ...section("What each section does"), h("div", { class: "grid two" }, [["Overview", "Health and key numbers."], ["Knowledge bases", "Size and cost per project; warnings to decide what to compact."], ["Vectors", "Which fingerprints are stored and how much they weigh."], ["Graph", "The concept map."], ["PostgreSQL", "The database, read-only."], ["Search", "Test retrieval."], ["Memory usage", "When it is queried and whether it responds: proof that it works."], ["System resources", "Snapshot of the Mac's load (on demand) and of Docker."], ["Tokens and cost", "AI consumption, from three sources."], ["API and containers", "Who calls Cognee and the health of the services."]].map(([a, b]) => h("div", { class: "card" }, h("b", {}, a), h("div", { class: "muted" }, b)))),
+  ...section("Glossary"), h("div", { class: "card" }, h("dl", { class: "gloss" }, GLOSSARY.flatMap(([t, d]) => [h("dt", {}, t), h("dd", {}, d)])))) };
 
-/* ── navegación y tema ── */
-const NAV = [["General", ["resumen"]], ["Conocimiento", ["conocimiento", "vectores", "grafo", "busqueda"]], ["Datos", ["postgres", "sync"]], ["Consumo y salud", ["uso", "recursos", "tokens", "llamadas"]], ["Ayuda", ["guia"]]];
-const NAMES = { resumen: "Resumen", conocimiento: "Bases de conocimiento", vectores: "Vectores", grafo: "Grafo", busqueda: "Búsqueda", postgres: "PostgreSQL", sync: "Sincronización", uso: "Uso de la memoria", recursos: "Recursos del equipo", tokens: "Tokens y costo", llamadas: "API y contenedores", guia: "Guía y glosario" };
+/* ── navigation and theme ── */
+const NAV = [["General", ["overview"]], ["Knowledge", ["knowledge", "vectors", "graph", "search"]], ["Data", ["postgres", "sync"]], ["Consumption and health", ["usage", "resources", "tokens", "calls"]], ["Help", ["guide"]]];
+const NAMES = { overview: "Overview", knowledge: "Knowledge bases", vectors: "Vectors", graph: "Graph", search: "Search", postgres: "PostgreSQL", sync: "Synchronization", usage: "Memory usage", resources: "System resources", tokens: "Tokens and cost", calls: "API and containers", guide: "Guide and glossary" };
 function themeBtn() {
   const dark = document.documentElement.dataset.theme === "dark";
-  return h("button", { class: "ghost", id: "themeBtn", title: "Cambiar tema", "aria-label": "Cambiar tema", onclick: () => { const d = document.documentElement.dataset.theme !== "dark"; document.documentElement.dataset.theme = d ? "dark" : "light"; try { localStorage.setItem("mm-theme", d ? "dark" : "light"); } catch (_) { /* sin almacenamiento */ } $("#themeBtn").replaceWith(themeBtn()); } }, icon(dark ? "sun" : "moon", 15));
+  return h("button", { class: "ghost", id: "themeBtn", title: "Change theme", "aria-label": "Change theme", onclick: () => { const d = document.documentElement.dataset.theme !== "dark"; document.documentElement.dataset.theme = d ? "dark" : "light"; try { localStorage.setItem("mm-theme", d ? "dark" : "light"); } catch (_) { /* no storage */ } $("#themeBtn").replaceWith(themeBtn()); } }, icon(dark ? "sun" : "moon", 15));
 }
 function route() {
-  const key = (location.hash || "#resumen").slice(1), p = pages[key] || pages.resumen;
-  document.querySelectorAll("#menu a").forEach((a) => a.classList.toggle("on", a.dataset.k === (pages[key] ? key : "resumen")));
+  const key = (location.hash || "#overview").slice(1), p = pages[key] || pages.overview;
+  document.querySelectorAll("#menu a").forEach((a) => a.classList.toggle("on", a.dataset.k === (pages[key] ? key : "overview")));
   $("#title").textContent = p.title; $("#subtitle").textContent = p.sub; document.title = `${p.title} · Management Memory`; $("#side").classList.remove("open");
-  $("#actions").replaceChildren(h("button", { class: "ghost", onclick: route, title: "Volver a cargar los datos" }, icon("refresh", 15), " Actualizar"), themeBtn());
+  $("#actions").replaceChildren(h("button", { class: "ghost", onclick: route, title: "Reload the data" }, icon("refresh", 15), " Refresh"), themeBtn());
   render(p.run);
 }
-try { const t = localStorage.getItem("mm-theme") || (matchMedia("(prefers-color-scheme:dark)").matches ? "dark" : "light"); document.documentElement.dataset.theme = t; } catch (_) { /* tema por defecto */ }
+try { const t = localStorage.getItem("mm-theme") || (matchMedia("(prefers-color-scheme:dark)").matches ? "dark" : "light"); document.documentElement.dataset.theme = t; } catch (_) { /* default theme */ }
 $("#menu").append(...NAV.flatMap(([g, keys]) => [h("div", { class: "group" }, g), ...keys.map((k) => h("a", { data: { k }, href: "#" + k }, icon(pages[k].icon, 18), NAMES[k]))]));
 $("#menuBtn").onclick = () => $("#side").classList.toggle("open");
 addEventListener("hashchange", route); route();

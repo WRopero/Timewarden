@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Obsolescencia por Git, sin tokens: para cada doc, ¿cambiaron sus source_paths desde source_commit?
+"""Git-based staleness, no tokens: for each doc, did its source_paths change since source_commit?
 
-Uso: memory_stale.py <repo> [doc.md ...]     (sin docs = todos los de docs/agent-memory)
-Salida por doc: FRESCO | OBSOLETO (archivos cambiados) | SIN-FUENTE. Exit 1 si hay obsoletos.
-CLAUDE.md y AGENTS.md se ignoran como fuente (cambian a diario); ver stale_ignore en project.yaml.
+Usage: memory_stale.py <repo> [doc.md ...]     (no docs = all of those in docs/agent-memory)
+Output per doc: FRESH | STALE (changed files) | NO-SOURCE. Exit 1 if any are stale.
+CLAUDE.md and AGENTS.md are ignored as sources (they change daily); see stale_ignore in project.yaml.
 """
 import re, subprocess, sys
 from pathlib import Path
@@ -11,8 +11,8 @@ from pathlib import Path
 repo = Path(sys.argv[1]).resolve()
 docs = [Path(a) for a in sys.argv[2:]] or sorted((repo / "docs/agent-memory").rglob("*.md"))
 stale = 0
-# Fuentes "blandas": archivos que cambian a diario y que muchos documentos citan solo como contexto.
-# No marcan obsolescencia por si solas. Se puede cambiar en .agent-memory/project.yaml -> stale_ignore: [a, b]
+# "Soft" sources: files that change daily and that many documents cite only as context.
+# They do not flag staleness on their own. Can be changed in .agent-memory/project.yaml -> stale_ignore: [a, b]
 SOFT = ["CLAUDE.md", "AGENTS.md"]
 cfgp = repo / ".agent-memory" / "project.yaml"
 if cfgp.exists():
@@ -28,14 +28,14 @@ for d in docs:
     paths = [x.strip()[2:].strip() for x in block.group(1).splitlines()] if block else []
     rel = d.relative_to(repo).as_posix()
     if not commit or commit.startswith("<") or not paths:
-        print(f"SIN-FUENTE  {rel}"); continue
+        print(f"NO-SOURCE  {rel}"); continue
     out = subprocess.run(["git", "-C", str(repo), "diff", "--name-only", f"{commit}..HEAD", "--", *paths],
                          capture_output=True, text=True)
     if out.returncode != 0:
-        print(f"SIN-FUENTE  {rel} (commit {commit} no resuelve)"); continue
+        print(f"NO-SOURCE  {rel} (commit {commit} does not resolve)"); continue
     changed = [c for c in out.stdout.split() if c not in SOFT]
     if changed:
-        stale += 1; print(f"OBSOLETO    {rel}: {', '.join(changed)}")
+        stale += 1; print(f"STALE    {rel}: {', '.join(changed)}")
     else:
-        print(f"FRESCO      {rel}")
+        print(f"FRESH      {rel}")
 sys.exit(1 if stale else 0)

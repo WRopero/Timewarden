@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Disparador BAJO DEMANDA de la medicion del Mac para Management Memory (activacion por socket de launchd).
-# launchd escucha 127.0.0.1:8018 sin gastar nada y solo lanza host_stats.py --inetd cuando alguien se conecta
-# (el boton «Medir el Mac ahora» del panel); el proceso termina tras responder. Reversible.
-# Uso: host_stats_launchagent.sh install|uninstall|status|test
+# ON-DEMAND trigger for measuring the Mac for Management Memory (launchd socket activation).
+# launchd listens on 127.0.0.1:8018 at no cost and only launches host_stats.py --inetd when someone connects
+# (the «Measure the Mac now» button in the dashboard); the process exits after responding. Reversible.
+# Usage: host_stats_launchagent.sh install|uninstall|status|test
 set -euo pipefail
 LABEL=com.agents-memory.host-stats
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
@@ -28,12 +28,12 @@ case "${1:-status}" in
   <key>StandardErrorPath</key><string>$LOGDIR/host-stats.log</string>
 </dict></plist>
 PL
-    launchctl bootstrap "$DOM" "$PLIST"; echo "instalado (bajo demanda, sin proceso residente): $PLIST"; "$0" status ;;
+    launchctl bootstrap "$DOM" "$PLIST"; echo "installed (on demand, no resident process): $PLIST"; "$0" status ;;
   uninstall)
-    launchctl bootout "$DOM/$LABEL" 2>/dev/null || true; rm -f "$PLIST"; echo "desinstalado" ;;
+    launchctl bootout "$DOM/$LABEL" 2>/dev/null || true; rm -f "$PLIST"; echo "uninstalled" ;;
   status)
-    launchctl print "$DOM/$LABEL" 2>/dev/null | grep -E "state =|active count|runs =" || echo "LaunchAgent no cargado"
-    pgrep -fl "host_stats.py" || echo "ningun proceso host_stats en ejecucion (correcto: solo corre al medir)" ;;
+    launchctl print "$DOM/$LABEL" 2>/dev/null | grep -E "state =|active count|runs =" || echo "LaunchAgent not loaded"
+    pgrep -fl "host_stats.py" || echo "no host_stats process running (correct: it only runs while measuring)" ;;
   test)
     curl -s -m 15 -X POST http://127.0.0.1:8018/ | python3 -c "import sys,json;d=json.load(sys.stdin);print('CPU',d['cpu'],'RAM usada',d['memory']['used'])" ;;
 esac

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Operaciones del stack de memoria. Uso: memctl.sh <comando> [args]
-#   up        arranca observer + stack (conserva volumenes)
-#   stop      pausa el stack (NUNCA usa down -v)
-#   status    estado real: contenedores, API, observer, registro de sync
-#   sync REPO sincroniza docs/agent-memory del repo (--apply para ejecutar)
-#   eval REPO evalua recuperacion con evals/cases.<project_id>.jsonl
+# Operations for the memory stack. Usage: memctl.sh <command> [args]
+#   up        starts observer + stack (keeps volumes)
+#   stop      pauses the stack (NEVER uses down -v)
+#   status    real status: containers, API, observer, sync log
+#   sync REPO syncs the repo's docs/agent-memory (--apply to execute)
+#   eval REPO evaluates retrieval with evals/cases.<project_id>.jsonl
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DC="$ROOT/scripts/dc.sh"
@@ -17,8 +17,8 @@ case "${1:-help}" in
     "$DC" stop ;;
   status)
     "$DC" ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}'
-    echo; printf 'API:      '; curl -s -m 4 http://127.0.0.1:45874/health || echo "caida"; echo
-    printf 'Observer: '; "$ROOT/scripts/observer.sh" status 2>/dev/null | tail -1 | cut -c1-200 || echo "caido"
+    echo; printf 'API:      '; curl -s -m 4 http://127.0.0.1:45874/health || echo "down"; echo
+    printf 'Observer: '; "$ROOT/scripts/observer.sh" status 2>/dev/null | tail -1 | cut -c1-200 || echo "down"
     [ -n "${2:-}" ] && python3 -I "$ROOT/scripts/sync_markdown.py" "$2" --status || true ;;
   sync)
     shift; python3 -I "$ROOT/scripts/sync_markdown.py" "$@" ;;

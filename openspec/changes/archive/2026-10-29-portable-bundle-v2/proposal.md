@@ -1,34 +1,34 @@
 ## Why
 
-El bundle de instalación de la memoria de proyecto (Cognee en Docker + hooks + skills) nació en un proyecto web concreto y arrastra su nombre, rutas absolutas y supuestos (Django/Next.js). Se quiere compartir con compañeros que trabajan, además, en **proyectos de datos** (BigQuery + Dataform, Snowflake + dbt), donde lo que importa recordar es distinto: linaje, particionado, costo de consultas, entornos, permisos y versiones de paquetes/adaptadores. También falta memoria de **seguridad y versiones** (qué hay instalado, cuándo y por qué cambió), de **despliegues por rama** y de los **specs de OpenSpec**.
+The installation bundle for the project memory (Cognee in Docker + hooks + skills) was born in a specific web project and carries over its name, absolute paths, and assumptions (Django/Next.js). It is meant to be shared with teammates who also work on **data projects** (BigQuery + Dataform, Snowflake + dbt), where what matters to remember is different: lineage, partitioning, query cost, environments, permissions, and package/adapter versions. There is also no memory for **security and versions** (what is installed, when and why it changed), for **per-branch deployments**, or for the **OpenSpec specs**.
 
 ## What Changes
 
-- El bundle detecta el tipo de proyecto, **pregunta cuando es ambiguo** y aplica un perfil (dbt/Snowflake, Dataform/BigQuery, SQL/BigQuery con Terraform, aplicación web, genérico).
-- Perfiles de datos con las reglas que el agente debe respetar (costo de BigQuery, particiones, entornos, grants, tests de dbt/Dataform, secretos fuera del repo).
-- Registro determinista de dependencias y versiones con historial (motivo `security` vs `upgrade`) y auditoría de vulnerabilidades (OSV) lanzada automáticamente por el hook de arranque, con pendientes visibles en el briefing.
-- Registro de despliegues por entorno y estado por rama (ya implementado; se formaliza).
-- Los specs y cambios de OpenSpec se indexan en la memoria y el briefing lista los cambios activos.
-- Regla: ante ambigüedad, consultar la memoria antes de decidir o preguntar.
-- **BREAKING**: el bundle deja de depender de rutas, nombres de proyecto o cuentas personales; se distribuye como `.zip` autocontenido (incluye el panel Management Memory) con instalación relocalizable.
+- The bundle detects the project type, **asks when it is ambiguous**, and applies a profile (dbt/Snowflake, Dataform/BigQuery, SQL/BigQuery with Terraform, web application, generic).
+- Data profiles with the rules the agent must follow (BigQuery cost, partitions, environments, grants, dbt/Dataform tests, secrets kept out of the repo).
+- Deterministic registry of dependencies and versions with history (reason `security` vs `upgrade`) and vulnerability auditing (OSV) launched automatically by the startup hook, with pending items visible in the briefing.
+- Deployment registry per environment and per-branch status (already implemented; now formalized).
+- OpenSpec specs and changes are indexed in the memory, and the briefing lists the active changes.
+- Rule: when something is ambiguous, consult the memory before deciding or asking.
+- **BREAKING**: the bundle no longer depends on paths, project names, or personal accounts; it is distributed as a self-contained `.zip` (includes the Management Memory panel) with a relocatable installation.
 
 ## Capabilities
 
 ### New Capabilities
-- `project-type-detection`: detectar tipo de proyecto, confianza y pregunta obligatoria si es ambiguo.
-- `data-project-profiles`: reglas y plantillas de memoria para proyectos de datos (dbt/Snowflake, Dataform/BigQuery).
-- `dependency-security-memory`: versiones instaladas, historial de cambios y auditoría de vulnerabilidades automática.
-- `deployment-ledger`: qué commit está desplegado por entorno y estado de cada rama.
-- `openspec-memory`: specs y cambios de OpenSpec como parte de la memoria.
-- `ambiguity-recall-rule`: consultar la memoria cuando la tarea es ambigua.
-- `portable-bundle`: paquete `.zip` neutral, relocalizable y verificable.
+- `project-type-detection`: detect project type, confidence, and a mandatory question if ambiguous.
+- `data-project-profiles`: memory rules and templates for data projects (dbt/Snowflake, Dataform/BigQuery).
+- `dependency-security-memory`: installed versions, change history, and automatic vulnerability auditing.
+- `deployment-ledger`: which commit is deployed per environment and the status of each branch.
+- `openspec-memory`: OpenSpec specs and changes as part of the memory.
+- `ambiguity-recall-rule`: consult the memory when the task is ambiguous.
+- `portable-bundle`: neutral, relocatable, verifiable `.zip` package.
 
 ### Modified Capabilities
-<!-- Primera spec del repositorio: no hay capacidades previas en openspec/specs -->
+<!-- First spec in the repository: there are no previous capabilities in openspec/specs -->
 
 ## Impact
 
-- Código: `scripts/` (nuevos `detect_project_type.py`, `memory_deps.py`, `memory_audit.py`, `memory_deploy.py`, `package_bundle.sh`), `seed-bundle/`, `skills/`, `templates/`, `profiles/`.
-- Proyectos ya instalados: el contrato (`.agent-memory/project.yaml`) gana campos opcionales; sin ellos todo sigue funcionando.
-- Red: la auditoría consulta `api.osv.dev` (solo nombres y versiones de paquetes); si no hay red falla en silencio.
-- Fuera de alcance: soporte Windows/Linux (solo se probó macOS + Docker Desktop), ejecutar `dbt`/`dataform` o conectar a BigQuery/Snowflake desde la memoria.
+- Code: `scripts/` (new `detect_project_type.py`, `memory_deps.py`, `memory_audit.py`, `memory_deploy.py`, `package_bundle.sh`), `seed-bundle/`, `skills/`, `templates/`, `profiles/`.
+- Already installed projects: the contract (`.agent-memory/project.yaml`) gains optional fields; everything keeps working without them.
+- Network: the audit queries `api.osv.dev` (only package names and versions); if there is no network it fails silently.
+- Out of scope: Windows/Linux support (only macOS + Docker Desktop was tested), running `dbt`/`dataform` or connecting to BigQuery/Snowflake from the memory.

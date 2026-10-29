@@ -1,16 +1,16 @@
-# Prompt para pegar a un agente
+# Prompt to paste to an agent
 
-Descomprime el kit en cualquier carpeta (la llamaremos `<KIT>`: contiene `seed-bundle/SEED.md`). Abre Claude Code y pega el bloque cambiando `<KIT>`, `<repo>` y `<project_id>`:
+Unzip the kit in any folder (we will call it `<KIT>`: it contains `seed-bundle/SEED.md`). Open Claude Code and paste the block below, changing `<KIT>`, `<repo>` and `<project_id>`:
 
 ```text
-Instala la memoria de proyecto en <repo> con project_id <project_id>.
-El kit de instalación está en <KIT> (carpeta que contiene seed-bundle/SEED.md). Trabaja desde esa carpeta.
-Lee seed-bundle/SEED.md y sigue las fases en orden con seed-bundle/seed.sh. Reglas:
-- Pregunta antes de arrancar contenedores, instalar el plugin, levantar el panel o indexar (gasta tokens).
-- Si el idioma (español/inglés) o el tipo de proyecto (dbt, Dataform, Snowflake, BigQuery, aplicación web, etc.) no es obvio, pregúntame; no lo adivines. Si el instalador sale con código 3, es una pregunta para mí.
-- No imprimas secretos. Nada de `down -v` ni `forget everything`.
-- Solo está validado macOS + Docker Desktop: si estoy en otro sistema, avísame antes de seguir.
-- Al terminar, dame: qué instalaste, dónde, costo en tokens, cómo desconectarlo y los resultados de `seed.sh verify`.
+Install project memory in <repo> with project_id <project_id>.
+The installation kit is in <KIT> (the folder that contains seed-bundle/SEED.md). Work from that folder.
+Read seed-bundle/SEED.md and follow the phases in order using seed-bundle/seed.sh. Rules:
+- Ask me before starting containers, installing the plugin, bringing up the dashboard or indexing (indexing spends tokens).
+- If the language (Spanish/English) or the project type (dbt, Dataform, Snowflake, BigQuery, web application, etc.) is not obvious, ask me; do not guess. If the installer exits with code 3, that is a question for me.
+- Do not print secrets. No `down -v` and no `forget everything`.
+- Only macOS + Docker Desktop is validated: if I am on another system, tell me before continuing.
+- When finished, give me: what you installed, where, the token cost, how to disconnect it and the results of `seed.sh verify`.
 ```
 
-Solo la infraestructura (sin proyecto) en un equipo nuevo: «Ejecuta las fases 1 a 3 de SEED.md». Otro repositorio después: repetir desde la fase 2 con otro `project_id`.
+Infrastructure only (no project) on a new machine: "Run phases 1 to 3 of SEED.md". For another repository afterwards: repeat from phase 2 with another `project_id`.

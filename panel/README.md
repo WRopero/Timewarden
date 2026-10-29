@@ -1,62 +1,62 @@
 # Management Memory
 
-Panel de control **interno y de solo lectura** para vigilar la memoria de proyecto (Cognee en Docker): salud de los servicios, qué vectores existen y dónde, grafo, PostgreSQL, tokens y costo (observer + OpenTelemetry), llamadas a la API, contenedores y tamaño de la base de conocimiento por proyecto (con avisos para decidir qué compactar o eliminar). No modifica nada.
+Internal, **read-only** control panel for monitoring project memory (Cognee in Docker): service health, which vectors exist and where, graph, PostgreSQL, tokens and cost (observer + OpenTelemetry), API calls, containers, and knowledge base size per project (with warnings to help decide what to compact or delete). It doesn't modify anything.
 
-Corre en `http://127.0.0.1:45876`, solo local.
+Runs at `http://127.0.0.1:45876`, local only.
 
-## Cómo correrlo
+## How to run it
 
-El `.env` (0600) se genera en cada equipo con `scripts/setup.py` y está en `.gitignore`: el código no contiene secretos.
+The `.env` (0600) is generated on each machine with `scripts/setup.py` and is in `.gitignore`: the code contains no secrets.
 
-Requisitos: Docker Desktop corriendo y el stack de memoria arriba (este panel viene dentro del kit **Timewarden**, carpeta `panel/`; ver `seed-bundle/SEED.md`). El panel se conecta a ese stack, así que sin él no tiene nada que mostrar.
+Requirements: Docker Desktop running and the memory stack up (this panel ships inside the **Timewarden** kit, folder `panel/`; see `seed-bundle/SEED.md`). The panel connects to that stack, so without it there is nothing to show.
 
 ```bash
 cd <KIT>/panel
 
-# Primera vez (idempotente, no imprime secretos): crea .env, el rol Postgres de solo lectura y la copia del registro
+# First time (idempotent, doesn't print secrets): creates .env, the read-only Postgres role and the registry copy
 python3 scripts/setup.py
 
-# Levantar (construye la imagen la primera vez)
+# Start (builds the image the first time)
 docker compose up -d --build
 
 open http://127.0.0.1:45876
 ```
 
-| Acción | Comando |
+| Action | Command |
 |---|---|
-| Ver logs | `docker compose logs -f mm_app` |
-| Parar | `docker compose stop` (nunca `down -v`; no tiene volúmenes propios que perder) |
-| Reconstruir tras cambiar código | `docker compose up -d --build mm_app` |
+| View logs | `docker compose logs -f mm_app` |
+| Stop | `docker compose stop` (never `down -v`; it has no volumes of its own to lose) |
+| Rebuild after changing code | `docker compose up -d --build mm_app` |
 | Tests | `python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt && .venv/bin/pytest` |
 
-Si el navegador muestra una versión vieja tras reconstruir: recarga forzada (`Cmd+Shift+R`).
+If the browser shows an old version after rebuilding: force reload (`Cmd+Shift+R`).
 
-## Qué muestra cada sección
-Resumen · Bases de conocimiento (por proyecto/dataset, costo de reconstruir, documentos que más pesan, avisos) · Vectores (qué se guarda y dónde) · Grafo · PostgreSQL (explorador + consola SELECT) · Búsqueda (prueba de recuperación) · **Uso de la memoria** (cuándo se inyecta el briefing y cuándo se consulta, con resultado y veredicto «¿funciona?») · **Recursos del equipo** (CPU/RAM/swap/disco del Mac bajo demanda y de Docker) · Tokens y costo · API y contenedores · Sincronización · Guía y glosario (explica cada concepto en lenguaje llano).
+## What each section shows
+Summary · Knowledge bases (per project/dataset, rebuild cost, heaviest documents, warnings) · Vectors (what is stored and where) · Graph · PostgreSQL (explorer + SELECT console) · Search (retrieval test) · **Memory usage** (when the briefing is injected and when it is queried, with result and verdict "does it work?") · **Machine resources** (CPU/RAM/swap/disk of the Mac on demand and of Docker) · Tokens and cost · API and containers · Synchronization · Guide and glossary (explains each concept in plain language).
 
-## Datos que vienen del Mac (servicios ligeros, en `agents_memory_system`)
-- **Uso de la memoria**: `scripts/usage_scan.py` lee los transcripts de Claude Code (solo lectura, solo metadatos) y escribe `view/usage.jsonl`; se refresca al cerrar cada sesión (hook) o a mano.
-- **Recursos del equipo**: un contenedor no ve el Mac. `scripts/host_stats_launchagent.sh install` registra una activación por socket de launchd (`127.0.0.1:8018`): **no hay proceso residente**; solo al pulsar «Medir el Mac ahora» launchd ejecuta `host_stats.py --inetd` una vez (~2 s). Docker se lee del motor por el proxy de solo lectura (`/info`, `/system/df`).
+## Data that comes from the Mac (lightweight services, in `agents_memory_system`)
+- **Memory usage**: `scripts/usage_scan.py` reads the Claude Code transcripts (read-only, metadata only) and writes `view/usage.jsonl`; it is refreshed when each session closes (hook) or manually.
+- **Machine resources**: a container can't see the Mac. `scripts/host_stats_launchagent.sh install` registers a launchd socket activation (`127.0.0.1:8018`): **there is no resident process**; only when you click "Measure the Mac now" does launchd run `host_stats.py --inetd` once (~2 s). Docker is read from the engine through the read-only proxy (`/info`, `/system/df`).
 
-## Tokens: qué se mide y qué no
-1. **Observer** (`~/.cognee-plugin/observer`): todo lo que Cognee gasta al indexar. Completo.
-2. **Claude Code por OpenTelemetry**: solo sesiones abiertas con `<KIT>/scripts/claude-memory <proyecto>` (variables `OTEL_*` reales; el bloque `env` de `settings.json` **no** sirve). Sugerencia: `alias cm='<KIT>/scripts/claude-memory'`.
-3. **Estadísticas de sesión de Cognee**: suele ser 0 (el observer usa la suscripción).
-La cuota restante de la suscripción no se puede consultar desde fuera.
+## Tokens: what is measured and what is not
+1. **Observer** (`~/.cognee-plugin/observer`): everything Cognee spends when indexing. Complete.
+2. **Claude Code via OpenTelemetry**: only sessions opened with `<KIT>/scripts/claude-memory <project>` (real `OTEL_*` variables; the `env` block in `settings.json` does **not** work). Suggestion: `alias cm='<KIT>/scripts/claude-memory'`.
+3. **Cognee session statistics**: usually 0 (the observer uses the subscription).
+The remaining subscription quota can't be queried from outside.
 
-## Seguridad (por diseño)
-- Solo `127.0.0.1`; middleware de Host (anti DNS-rebinding), CSP estricta, `X-Frame-Options`, `no-store`.
-- PostgreSQL con rol `mm_reader`: transacciones de solo lectura, límite de 15 s, una sola sentencia `SELECT/WITH/EXPLAIN/SHOW/VALUES/TABLE`.
-- Docker solo vía `socket-proxy` con lista blanca (GET de logs/stats/inspect); el panel no monta el socket.
-- Contenedor sin root, `cap_drop ALL`, volúmenes de datos en solo lectura.
-- Todo texto dinámico se inserta con `textContent`, nunca `innerHTML`.
-- `.env` (0600) no se versiona.
+## Security (by design)
+- `127.0.0.1` only; Host middleware (anti DNS-rebinding), strict CSP, `X-Frame-Options`, `no-store`.
+- PostgreSQL with the `mm_reader` role: read-only transactions, 15 s limit, a single `SELECT/WITH/EXPLAIN/SHOW/VALUES/TABLE` statement.
+- Docker only via `socket-proxy` with an allowlist (GET for logs/stats/inspect); the panel doesn't mount the socket.
+- Non-root container, `cap_drop ALL`, data volumes read-only.
+- All dynamic text is inserted with `textContent`, never `innerHTML`.
+- `.env` (0600) is not versioned.
 
-## Estructura
-`app/` FastAPI (`main.py` endpoints; `pg.py`, `otel.py`, `observer.py`, `kb.py`, `vectors.py`, `dockerapi.py`, `storage.py`, `cognee_client.py`) · `static/` SPA sin build (vanilla JS + cytoscape vendorizado en el build) · `scripts/setup.py` · `compose.yaml` · `tests/`.
+## Structure
+`app/` FastAPI (`main.py` endpoints; `pg.py`, `otel.py`, `observer.py`, `kb.py`, `vectors.py`, `dockerapi.py`, `storage.py`, `cognee_client.py`) · `static/` SPA with no build step (vanilla JS + cytoscape vendored at build time) · `scripts/setup.py` · `compose.yaml` · `tests/`.
 
-## Extenderlo
-Un endpoint nuevo = una función en `app/` + una ruta en `app/main.py` + una página en `static/app.js` (`pages.<clave>`, y el menú `NAV`/`NAMES`). Mantén todo de solo lectura y los textos en lenguaje llano; añade los términos nuevos al `GLOSSARY`.
+## Extending it
+A new endpoint = a function in `app/` + a route in `app/main.py` + a page in `static/app.js` (`pages.<key>`, and the `NAV`/`NAMES` menu). Keep everything read-only and the texts in plain language; add the new terms to the `GLOSSARY`.
 
-## Instalarlo en otro equipo
-Lo instala el kit (fase 7 de `seed-bundle/SEED.md`): `seed-bundle/seed.sh panel --yes`.
+## Installing it on another machine
+The kit installs it (phase 7 of `seed-bundle/SEED.md`): `seed-bundle/seed.sh panel --yes`.

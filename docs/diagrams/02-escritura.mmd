@@ -1,11 +1,11 @@
 flowchart LR
-  A["Markdown<br/>en Git"] --> C{"¿Cambió<br/>el hash?"}
-  C -->|"no"| Z["Nada<br/>0 llamadas"]
-  C -->|"sí"| D["Reemplazar:<br/>borrar + add"]
+  A["Markdown<br/>in Git"] --> C{"Did the<br/>hash change?"}
+  C -->|"no"| Z["Nothing<br/>0 calls"]
+  C -->|"yes"| D["Replace:<br/>delete + add"]
   D --> H["cognify<br/>observer → Claude"]
-  H --> I{"¿Se recupera<br/>el documento?"}
-  I -->|"sí"| J["indexed"]
-  I -->|"no"| K["reintento<br/>sin duplicar"]
+  H --> I{"Is the<br/>document recovered?"}
+  I -->|"yes"| J["indexed"]
+  I -->|"no"| K["retry<br/>without duplicating"]
   classDef free fill:#E0F2EE,stroke:#176B7B,color:#12202B
   classDef cost fill:#FCE9D2,stroke:#C96A12,color:#12202B
   class Z,J free

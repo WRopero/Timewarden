@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Muestrea la carga del Mac (CPU, memoria, swap, disco, bateria, procesos) para Management Memory.
+"""Samples the Mac's load (CPU, memory, swap, disk, battery, processes) for Management Memory.
 
-Un contenedor no puede ver el Mac. Este script (stdlib, solo lectura, 0 tokens) toma UNA muestra y termina.
-Sin argumentos la imprime como JSON. Con --inetd lo lanza launchd solo cuando el panel pulsa «Medir el Mac ahora»
-(127.0.0.1:8018, activacion por socket): no hay ningun proceso residente ni sondeo periodico.
-Instalar el disparador: host_stats_launchagent.sh install
+A container cannot see the Mac. This script (stdlib, read-only, 0 tokens) takes ONE sample and exits.
+With no arguments it prints it as JSON. With --inetd, launchd launches it only when the dashboard presses «Measure the Mac now»
+(127.0.0.1:8018, socket activation): there is no resident process and no periodic polling.
+Install the trigger: host_stats_launchagent.sh install
 """
 import argparse, json, os, re, shutil, subprocess, sys, time
 from pathlib import Path
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--inetd", action="store_true", help="atiende una peticion HTTP por stdin/stdout (lo lanza launchd bajo demanda)")
+ap.add_argument("--inetd", action="store_true", help="serves one HTTP request over stdin/stdout (launched by launchd on demand)")
 a = ap.parse_args()
 
 
@@ -61,7 +61,7 @@ def top_procs():
             except ValueError:
                 pass
     agg = {}
-    for p in procs:  # agrupa por nombre (Chrome Helper, node...)
+    for p in procs:  # groups by name (Chrome Helper, node...)
         e = agg.setdefault(p["name"], {"name": p["name"], "cpu": 0.0, "rss": 0, "n": 0})
         e["cpu"] += p["cpu"]; e["rss"] += p["rss"]; e["n"] += 1
     vals = list(agg.values())
@@ -81,7 +81,7 @@ ALLOWED_HOSTS = {"host.docker.internal:8018", "127.0.0.1:8018", "localhost:8018"
 
 
 def serve_inetd():
-    """launchd (inetd-compatible) nos pasa UNA conexion por stdin/stdout: responde una medicion y termina. Cero uso en reposo."""
+    """launchd (inetd-compatible) hands us ONE connection over stdin/stdout: respond with one measurement and exit. Zero usage while idle."""
     head = b""
     while b"\r\n\r\n" not in head and len(head) < 8192:
         chunk = sys.stdin.buffer.readline()
@@ -92,10 +92,10 @@ def serve_inetd():
             break
     lines = head.decode("latin-1").splitlines()
     host = next((l.split(":", 1)[1].strip().lower() for l in lines if l.lower().startswith("host:")), "")
-    if host not in ALLOWED_HOSTS:  # anti DNS-rebinding: un navegador no puede leer esto con un dominio ajeno
-        body, code = b'{"error":"host no permitido"}', "421 Misdirected Request"
+    if host not in ALLOWED_HOSTS:  # anti DNS-rebinding: a browser cannot read this through a foreign domain
+        body, code = b'{"error":"host not allowed"}', "421 Misdirected Request"
     elif not lines or not lines[0].startswith(("GET ", "POST ")):
-        body, code = b'{"error":"peticion invalida"}', "400 Bad Request"
+        body, code = b'{"error":"invalid request"}', "400 Bad Request"
     else:
         body, code = json.dumps(sample()).encode(), "200 OK"
     sys.stdout.buffer.write(f"HTTP/1.1 {code}\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n".encode() + body)

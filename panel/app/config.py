@@ -3,7 +3,7 @@ import os
 
 COGNEE_API_URL = os.environ.get("COGNEE_API_URL", "http://agents_cognee_api:8000")
 COGNEE_MCP_URL = os.environ.get("COGNEE_MCP_URL", "http://agents_cognee_mcp:8000")
-COGNEE_API_KEY = os.environ.get("COGNEE_API_KEY", "")  # preferida: revocable y sin contraseña
+COGNEE_API_KEY = os.environ.get("COGNEE_API_KEY", "")  # preferred: revocable and passwordless
 COGNEE_USER_EMAIL = os.environ.get("COGNEE_USER_EMAIL", "")
 COGNEE_USER_PASSWORD = os.environ.get("COGNEE_USER_PASSWORD", "")
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Genera deploy/docker/.env (fuera de Git) con secretos aleatorios.
-# Idempotente: no sobrescribe valores existentes.
+# Generates deploy/docker/.env (outside of Git) with random secrets.
+# Idempotent: does not overwrite existing values.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="$ROOT/deploy/docker/.env"
@@ -15,12 +15,12 @@ put COGNEE_USER_EMAIL "memory@agents-memory.dev"
 put COGNEE_USER_PASSWORD "$(openssl rand -hex 20)"
 put COGNEE_JWT_SECRET "$(openssl rand -hex 32)"
 
-# El token del observer lo crea el plugin; se sincroniza siempre.
+# The observer token is created by the plugin; it is always synced.
 if [ -s "$TOKEN_FILE" ]; then
   grep -v '^OBSERVER_TOKEN=' "$ENV_FILE" > "$ENV_FILE.tmp" || true
   echo "OBSERVER_TOKEN=$(tr -d '\n' < "$TOKEN_FILE")" >> "$ENV_FILE.tmp"
   mv "$ENV_FILE.tmp" "$ENV_FILE"; chmod 600 "$ENV_FILE"
 else
-  echo "Falta $TOKEN_FILE: arranca el observer primero (scripts/observer.sh start)" >&2; exit 1
+  echo "Missing $TOKEN_FILE: start the observer first (scripts/observer.sh start)" >&2; exit 1
 fi
 echo "OK: $ENV_FILE"

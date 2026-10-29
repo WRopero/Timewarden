@@ -1,23 +1,23 @@
-# Manifiesto legible por maquina del seed bundle (version del bundle = version del spec).
+# Machine-readable manifest of the seed bundle (bundle version = spec version).
 bundle_version: 1.6
-spec: spec/Cognee-memory-specification.md   # v1.6; replica paso a paso en la seccion 21
+spec: spec/Cognee-memory-specification.md   # v1.6; step-by-step replica in section 21
 tested_on:
   machine: Apple M1, 32 GB, macOS 26.6.2
   docker: Docker Desktop (Engine 27.5.1, Compose 2.32.4)
-  claude_code: 2.1.311 (original 2.1.310; plugin requiere >= 2.1.287)
+  claude_code: 2.1.311 (original 2.1.310; plugin requires >= 2.1.287)
   plugin: cognee-memory 1.7.4 (marketplace topoteretes/cognee-integrations @ e3addddc)
   cognee: 1.6.5
 privacy:
-  local_only: [Cognee API, MCP, PostgreSQL/pgvector, grafo Ladybug, embeddings (fastembed jina-v2-base-es), OTel collector, Management Memory]   # el codigo del panel se descarga de GitHub una vez; no envia datos
-  leaves_the_mac: [fragmentos de documentos hacia Claude (via observer) solo al INDEXAR, texto recuperado dentro de la conversacion de Claude Code]
+  local_only: [Cognee API, MCP, PostgreSQL/pgvector, grafo Ladybug, embeddings (fastembed jina-v2-base-es), OTel collector, Management Memory]   # the panel code is downloaded from GitHub once; it sends no data
+  leaves_the_mac: [document fragments to Claude (via observer) only when INDEXING, retrieved text within the Claude Code conversation]
 panel:
-  dir: panel/                  # viaja dentro del kit; sin secretos (.env se genera por equipo y esta en .gitignore); override: MM_DIR
+  dir: panel/                  # ships inside the kit; no secrets (.env is generated per machine and is in .gitignore); override: MM_DIR
   read_only: true
-launchagents:                # reversibles (uninstall); sin proceso residente salvo el observer
-  observer: com.agents-memory.observer          # KeepAlive; lo instala seed.sh machine
-  host_stats: com.agents-memory.host-stats      # activacion por socket :8018, solo al pulsar «Medir el Mac ahora»; lo instala seed.sh panel
-session_capture: on_with_caps   # COGNEE_CAPTURE=true; topes en deploy/docker/compose.yaml (spec 20.1)
-ports:                       # todos en 127.0.0.1
+launchagents:                # reversible (uninstall); no resident process except the observer
+  observer: com.agents-memory.observer          # KeepAlive; installed by seed.sh machine
+  host_stats: com.agents-memory.host-stats      # socket activation on :8018, only when pressing «Medir el Mac ahora»; installed by seed.sh panel
+session_capture: on_with_caps   # COGNEE_CAPTURE=true; caps in deploy/docker/compose.yaml (spec 20.1)
+ports:                       # all on 127.0.0.1
   mcp: 45873
   api: 45874
   otlp: 45875
@@ -25,18 +25,18 @@ ports:                       # todos en 127.0.0.1
   observer: 8017
 language:
   field: .agent-memory/project.yaml -> language   # es | en
-  detection: scripts/detect_language.py            # exit 0 = confiable; exit 2/3 = ASK THE USER
+  detection: scripts/detect_language.py            # exit 0 = reliable; exit 2/3 = ASK THE USER
   ask_user_when: [LANG=unknown, CONFIDENCE < 0.75, repo mixto, repo casi vacio]
   templates: templates/<lang>/
 phases:
   - id: doctor
     command: seed-bundle/seed.sh doctor
     changes_system: false
-  - id: machine            # una sola vez por Mac
+  - id: machine            # only once per Mac
     command: seed-bundle/seed.sh machine --yes
     needs_user_approval: true
     changes_system: [Docker containers, ~/.cognee-plugin/observer, deploy/docker/.env]
-  - id: project            # una vez por repositorio
+  - id: project            # once per repository
     command: seed-bundle/seed.sh project <repo> <project_id> --lang auto
     needs_user_approval: [language if ambiguous, plugin install (global settings)]
   - id: corpus
@@ -45,15 +45,15 @@ phases:
     command: scripts/memctl.sh sync <repo> --apply
     cost: ~2 Claude calls per chunk
     needs_user_approval: true
-  - id: panel              # Management Memory: parte de la instalacion
+  - id: panel              # Management Memory: part of the installation
     command: seed-bundle/seed.sh panel --yes
     needs_user_approval: true
     changes_system: [2 Docker containers (panel + read-only Docker socket proxy), launchd on-demand socket (127.0.0.1:8018)]
   - id: verify
     command: seed-bundle/seed.sh verify <repo>
-deploy_ledger:             # estado de despliegue por rama, en el briefing
-  script: scripts/memory_deploy.py   # record|status; registro en <repo>/.agent-memory/deployments.json
-  rule: registrar SOLO tras verificar la salud del despliegue
+deploy_ledger:             # per-branch deployment status, in the briefing
+  script: scripts/memory_deploy.py   # record|status; record in <repo>/.agent-memory/deployments.json
+  rule: record ONLY after verifying deployment health
 never:
   - docker compose down -v
   - forget with everything

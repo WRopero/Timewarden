@@ -5,20 +5,20 @@ description: Use after a pilot, a model/version change, or when memory quality o
 
 # project-memory-evaluate
 
-> `<MS>` = ruta del sistema de memoria: campo `memory_system` de `.agent-memory/local.yaml` (local a cada maquina).
+> `<MS>` = path to the memory system: the `memory_system` field of `.agent-memory/local.yaml` (local to each machine).
 
-Mide si la memoria ayuda y cuanto cuesta; un ahorro negativo es un resultado valido.
+Measures whether memory helps and how much it costs; a negative saving is a valid result.
 
-## Procedimiento
-1. **Recuperacion:** `<MS>/scripts/memctl.sh eval <repo>` (20 preguntas ES/EN con `doc_id` esperado; objetivo >= 17/20 en top 5, p95 < 3 s). Las preguntas sin respuesta solo se reportan: abstenerse es decision del agente.
-2. **Frescura:** `memory_stale.py <repo>`; cuenta notas `OBSOLETO` y `SIN-FUENTE`.
-3. **Aislamiento (tras cambios de version o de dataset):** dos datasets de prueba con un hecho distinto cada uno; consulta cruzada en ambos sentidos; `forget` de uno y comprueba que el otro sigue intacto.
-4. **Continuidad:** sesion nueva sin herramientas y con `--settings '{"autoMemoryEnabled":false}'`; pregunta decisiones, reglas y pendientes; compara con la verdad conocida.
-5. **Consumo:** `python3 -I <MS>/scripts/weekly_report.py` (observer y sesiones) y, para A/B, lanza las variantes con `scripts/claude-memory <id> A|B -- ...` y corre `scripts/dc.sh --profile eval run --rm agents_analytics report --project <id>`.
-   - A = leer el mismo Markdown sin plugin ni MCP; B = con memoria. Mismo commit, modelo y pregunta; varias repeticiones; separa ingesta (una vez) de consulta.
-6. Reporta resultados **reales** con sus limites (tamano de muestra, que no se midio) y recomienda: seguir, ajustar o reducir.
+## Procedure
+1. **Retrieval:** `<MS>/scripts/memctl.sh eval <repo>` (20 ES/EN questions with expected `doc_id`; target >= 17/20 in top 5, p95 < 3 s). Unanswerable questions are only reported: abstaining is the agent's decision.
+2. **Freshness:** `memory_stale.py <repo>`; count `STALE` and `NO-SOURCE` notes.
+3. **Isolation (after version or dataset changes):** two test datasets with a different fact each; cross-query in both directions; `forget` one and check that the other remains intact.
+4. **Continuity:** new session without tools and with `--settings '{"autoMemoryEnabled":false}'`; ask about decisions, rules and pending items; compare with the known truth.
+5. **Consumption:** `python3 -I <MS>/scripts/weekly_report.py` (observer and sessions) and, for A/B, launch the variants with `scripts/claude-memory <id> A|B -- ...` and run `scripts/dc.sh --profile eval run --rm agents_analytics report --project <id>`.
+   - A = read the same Markdown without plugin or MCP; B = with memory. Same commit, model and question; several repetitions; separate ingestion (once) from query.
+6. Report **real** results with their limits (sample size, what was not measured) and recommend: continue, adjust or reduce.
 
-## Limites
-- La respuesta de otro LLM no es la unica verdad de referencia; contrasta con fuentes.
-- Contar documentos no demuestra ahorro; una tarea fallida con menos tokens no es ahorro.
-- Las pruebas de historia deben desactivar la memoria nativa de Claude o miden otra cosa.
+## Limits
+- Another LLM's answer is not the only reference truth; check against sources.
+- Counting documents does not prove savings; a failed task with fewer tokens is not savings.
+- History tests must disable Claude's native memory or they measure something else.

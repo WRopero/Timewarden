@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Evalua la recuperacion: fuente esperada en el top-k, latencia, aislamiento.
+"""Evaluates retrieval: expected source in the top-k, latency, isolation.
 
-Uso: memory_eval.py <cases.jsonl> --dataset NAME --project-id ID [--top-k 5]
-Las preguntas sin respuesta (`unanswerable`) solo se reportan: abstenerse es una
-decision del agente, no del recuperador.
+Usage: memory_eval.py <cases.jsonl> --dataset NAME --project-id ID [--top-k 5]
+Unanswerable questions (`unanswerable`) are only reported: abstaining is a
+decision for the agent, not the retriever.
 """
 import argparse, json, statistics, sys, time
 from pathlib import Path
@@ -37,16 +37,16 @@ for line in a.cases.read_text().splitlines():
     hit = None if case.get("unanswerable") else bool(set(docs) & set(case["expect"]))
     rank = next((i + 1 for i, d in enumerate(docs) if d in case["expect"]), None)
     rows.append({**case, "docs": docs, "hit": hit, "rank": rank, "s": round(dt, 2)})
-    mark = "n/a" if hit is None else ("OK " if hit else "FALLO")
+    mark = "n/a" if hit is None else ("OK " if hit else "FAIL")
     print(f"{case['id']} [{case['lang']}] {mark} rank={rank} {dt:.2f}s  {case['q'][:60]}")
     if hit is False:
-        print(f"      esperado={case['expect']} obtenido={docs}")
+        print(f"      expected={case['expect']} got={docs}")
 ans = [r for r in rows if r["hit"] is not None]
 ok = sum(1 for r in ans if r["hit"])
-print(f"\nrecall@{a.top_k} (documento): {ok}/{len(ans)}  objetivo >= 17/20")
+print(f"\nrecall@{a.top_k} (document): {ok}/{len(ans)}  target >= 17/20")
 for lang in ("es", "en"):
     sub = [r for r in ans if r["lang"] == lang]
     print(f"  {lang}: {sum(r['hit'] for r in sub)}/{len(sub)}")
 srt = sorted(lat)
-print(f"latencia: p50={statistics.median(lat):.2f}s p95={srt[int(len(srt)*0.95)-1]:.2f}s max={max(lat):.2f}s")
+print(f"latency: p50={statistics.median(lat):.2f}s p95={srt[int(len(srt)*0.95)-1]:.2f}s max={max(lat):.2f}s")
 Path(a.cases.with_suffix(".results.json")).write_text(json.dumps(rows, ensure_ascii=False, indent=1))

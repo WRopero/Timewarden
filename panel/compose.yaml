@@ -1,19 +1,19 @@
 name: management_memory
 
-# Management Memory: UI interna de SOLO LECTURA para inspeccionar el stack de memoria (Cognee).
-# Se une a la red y a los volumenes del stack `agents_memory_system` (externos, en solo lectura).
+# Management Memory: READ-ONLY internal UI for inspecting the memory stack (Cognee).
+# It joins the network and volumes of the `agents_memory_system` stack (external, read-only).
 
 services:
   mm_docker_proxy:
-    # Proxy minimo del socket de Docker: solo GET de lista/inspeccion/logs/stats de contenedores.
+    # Minimal Docker socket proxy: only GET for container list/inspect/logs/stats.
     image: wollomatic/socket-proxy:1.11.0
     restart: unless-stopped
-    user: "0:0"   # dueño del socket en Docker Desktop; sin capacidades (cap_drop ALL) y solo GET permitidos
+    user: "0:0"   # owner of the socket in Docker Desktop; no capabilities (cap_drop ALL) and only GET allowed
     command:
       - -loglevel=INFO
       - -listenip=0.0.0.0
       - -allowfrom=mm_app
-      # el proxy ya ancla la expresion (^...$): no añadir anclajes propios
+      # the proxy already anchors the expression (^...$): do not add your own anchors
       - '-allowGET=(/v[0-9.]+)?/(containers/(json|[a-f0-9]{12,64}/(json|logs|stats))|info|system/df)'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -25,7 +25,7 @@ services:
   mm_app:
     build: .
     restart: unless-stopped
-    user: "10001:10001"   # el collector escribe otlp*.json como uid 10001 (modo 0600)
+    user: "10001:10001"   # the collector writes otlp*.json as uid 10001 (mode 0600)
     env_file: .env
     environment:
       COGNEE_API_URL: http://agents_cognee_api:8000

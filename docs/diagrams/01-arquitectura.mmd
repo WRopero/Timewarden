@@ -1,7 +1,7 @@
 flowchart LR
-  subgraph MAC["Tu Mac"]
+  subgraph MAC["Your Mac"]
     direction TB
-    MD["Repo del proyecto<br/>docs/agent-memory (Git)"]
+    MD["Project repo<br/>docs/agent-memory (Git)"]
     CC["Claude Code<br/>plugin · skills · hooks"]
     OBS["Observer :8017<br/>claude -p haiku"]
   end
@@ -9,16 +9,16 @@ flowchart LR
     direction TB
     MCP["Cognee MCP :45873"]
     API["Cognee API :45874"]
-    PG[("Postgres + pgvector<br/>schema ds_ por dataset")]
-    GR[("Grafo Ladybug<br/>.lbug por dataset")]
+    PG[("Postgres + pgvector<br/>ds_ schema per dataset")]
+    GR[("Ladybug graph<br/>.lbug per dataset")]
   end
-  MD -->|"sync por hash"| API
-  CC -->|"hooks HTTP"| API
+  MD -->|"hash-based sync"| API
+  CC -->|"HTTP hooks"| API
   CC -->|"MCP recall"| MCP
   MCP --> API
   API --> PG
   API --> GR
-  API -->|"host.docker.internal<br/>token Bearer"| OBS
+  API -->|"host.docker.internal<br/>Bearer token"| OBS
   classDef mac fill:#E0F2EE,stroke:#176B7B,color:#12202B
   classDef dock fill:#E8EEF7,stroke:#3B5B8C,color:#12202B
   class CC,OBS,MD mac

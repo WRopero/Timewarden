@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# LaunchAgent del observer (arranca al iniciar sesion y se reinicia si cae). Reversible.
+# Observer LaunchAgent (starts at login and restarts if it dies). Reversible.
 # Uso: observer_launchagent.sh install|uninstall|status
 set -euo pipefail
 LABEL=com.agents-memory.observer
@@ -12,7 +12,7 @@ case "${1:-status}" in
     P="$(plugin_dir)"; [ -n "$P" ] || { echo "plugin cognee-memory no instalado" >&2; exit 1; }
     PY="$(command -v python3)"; CL="$(command -v claude)"; mkdir -p "$LOGDIR" "$HOME/Library/LaunchAgents"
     "$(dirname "$0")/observer.sh" stop >/dev/null 2>&1 || true   # evita dos observers en :8017
-    for pid in $(lsof -ti tcp:8017 -sTCP:LISTEN 2>/dev/null || true); do   # un observer manual puede seguir vivo
+    for pid in $(lsof -ti tcp:8017 -sTCP:LISTEN 2>/dev/null || true); do   # a manually started observer may still be alive
       if ps -p "$pid" -o command= | grep -q claude-observer; then kill "$pid"; fi
     done
     for _ in $(seq 1 15); do lsof -ti tcp:8017 -sTCP:LISTEN >/dev/null 2>&1 || break; sleep 1; done

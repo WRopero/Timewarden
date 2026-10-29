@@ -5,19 +5,19 @@ description: Use when a decision was corrected, the architecture changed, or whe
 
 # project-memory-maintain
 
-> `<MS>` = ruta del sistema de memoria: campo `memory_system` de `.agent-memory/local.yaml` (local a cada maquina).
+> `<MS>` = path to the memory system: the `memory_system` field of `.agent-memory/local.yaml` (local to each machine).
 
-Mantiene la memoria veraz: reemplaza, no acumula versiones contradictorias.
+Keeps memory truthful: it replaces, it does not accumulate contradictory versions.
 
-## Procedimiento
-1. **Auditar sin tokens:** `python3 -I <MS>/scripts/memory_stale.py <repo>` lista `OBSOLETO` (los `source_paths` cambiaron desde `source_commit`) y `SIN-FUENTE`.
-2. Para cada `OBSOLETO`: abre solo los archivos listados, compara con la nota y decide: actualizar (nuevo `source_commit`, `updated_at`), reemplazar (nota nueva con `supersedes: [id-anterior]` y la anterior pasa a `status: superseded`) o archivar (`archived`).
-3. Busca duplicados y contradicciones entre notas (mismo tema, distinta regla). **No resuelvas contando menciones**: contrasta con el codigo/Git o pregunta al dueno de negocio. Si no hay evidencia, deja ambas marcadas y anota la pregunta abierta en un handoff.
-4. Cambios de decision: crea la decision nueva, no edites la historia de la anterior.
-5. Sincroniza **una vez** al terminar: `memctl.sh sync <repo>` (plan) y `--apply`. Verifica que la version nueva se recupera y la vieja no (`memctl.sh eval <repo>` o un `recall` puntual).
-6. Informa: documentos cambiados, estado del sync (indexed/unverified/error), notas obsoletas pendientes.
+## Procedure
+1. **Audit without tokens:** `python3 -I <MS>/scripts/memory_stale.py <repo>` lists `STALE` (the `source_paths` changed since `source_commit`) and `NO-SOURCE`.
+2. For each `STALE`: open only the listed files, compare them with the note, and decide: update (new `source_commit`, `updated_at`), replace (new note with `supersedes: [previous-id]` and the previous one becomes `status: superseded`) or archive (`archived`).
+3. Look for duplicates and contradictions between notes (same topic, different rule). **Do not resolve by counting mentions**: check against the code/Git or ask the business owner. If there is no evidence, leave both marked and record the open question in a handoff.
+4. Decision changes: create the new decision, do not edit the history of the previous one.
+5. Sync **once** when finished: `memctl.sh sync <repo>` (plan) and `--apply`. Verify that the new version is retrieved and the old one is not (`memctl.sh eval <repo>` or a targeted `recall`).
+6. Report: documents changed, sync status (indexed/unverified/error), pending obsolete notes.
 
-## Limites
-- No borres un dataset entero para corregir una nota; `sync` ya reemplaza por `data_id`.
-- Antes de operaciones destructivas amplias, muestra el alcance y pide confirmacion. Nunca `forget` con `everything`.
-- No marques `verified` sin evidencia de validacion.
+## Limits
+- Do not delete an entire dataset to fix a single note; `sync` already replaces by `data_id`.
+- Before broad destructive operations, show the scope and ask for confirmation. Never `forget` with `everything`.
+- Do not mark `verified` without validation evidence.

@@ -1,35 +1,35 @@
 # project-type-detection Specification
 
 ## Purpose
-Detectar el tipo de proyecto (capas de perfil) al instalar y preguntar al usuario cuando la evidencia es ambigua, sin adivinar.
+Detect the project type (profile layers) at install time and ask the user when the evidence is ambiguous, without guessing.
 
 ## Requirements
 
-### Requirement: Detección del tipo de proyecto
-El instalador SHALL inspeccionar el repositorio y proponer un perfil compuesto por una o dos capas entre `dbt`, `dataform`, `snowflake`, `bigquery`, `webapp`, `python-lib` y `generic` (p. ej. `dbt,snowflake`, `dataform,bigquery`), con un nivel de confianza entre 0 y 1 y la lista de evidencias (archivos que motivaron la decisión).
+### Requirement: Project type detection
+The installer SHALL inspect the repository and propose a profile made up of one or two layers among `dbt`, `dataform`, `snowflake`, `bigquery`, `webapp`, `python-lib` and `generic` (e.g. `dbt,snowflake`, `dataform,bigquery`), with a confidence level between 0 and 1 and the list of evidence (files that motivated the decision).
 
-#### Scenario: Proyecto dbt claro
-- **WHEN** el repositorio contiene `dbt_project.yml`
-- **THEN** las capas propuestas son `dbt` y `snowflake` si el adaptador configurado es Snowflake (`dbt,bigquery` si es BigQuery), y la confianza es al menos 0,75
+#### Scenario: Clear dbt project
+- **WHEN** the repository contains `dbt_project.yml`
+- **THEN** the proposed layers are `dbt` and `snowflake` if the configured adapter is Snowflake (`dbt,bigquery` if it is BigQuery), and the confidence is at least 0.75
 
-#### Scenario: Proyecto Dataform claro
-- **WHEN** el repositorio contiene `workflow_settings.yaml` o `dataform.json` y archivos `.sqlx` bajo `definitions/`
-- **THEN** las capas propuestas son `dataform` y `bigquery` con confianza al menos 0,75
+#### Scenario: Clear Dataform project
+- **WHEN** the repository contains `workflow_settings.yaml` or `dataform.json` and `.sqlx` files under `definitions/`
+- **THEN** the proposed layers are `dataform` and `bigquery` with confidence of at least 0.75
 
-### Requirement: Pregunta obligatoria cuando es ambiguo
-Cuando la confianza sea menor que 0,75, existan evidencias de dos perfiles de datos a la vez, o el repositorio esté casi vacío, la detección MUST terminar con un código de salida distinto de cero reservado para "ambiguo" y el agente MUST preguntar al usuario antes de instalar. El instalador MUST NOT adivinar.
+### Requirement: Mandatory question when ambiguous
+When the confidence is below 0.75, there is evidence of two data profiles at once, or the repository is nearly empty, the detection MUST exit with a non-zero exit code reserved for "ambiguous" and the agent MUST ask the user before installing. The installer MUST NOT guess.
 
-#### Scenario: dbt sin adaptador detectable
-- **WHEN** existe `dbt_project.yml` y no hay evidencia del adaptador
-- **THEN** el resultado es ambiguo y se pregunta qué warehouse usa (Snowflake, BigQuery u otro)
+#### Scenario: dbt without a detectable adapter
+- **WHEN** `dbt_project.yml` exists and there is no evidence of the adapter
+- **THEN** the result is ambiguous and the user is asked which warehouse they use (Snowflake, BigQuery, or other)
 
-#### Scenario: Repositorio vacío
-- **WHEN** el repositorio no contiene archivos reconocibles
-- **THEN** el resultado es ambiguo y se ofrece elegir manualmente entre los perfiles disponibles
+#### Scenario: Empty repository
+- **WHEN** the repository contains no recognizable files
+- **THEN** the result is ambiguous and the user is offered a manual choice among the available profiles
 
-### Requirement: Elección explícita
-El instalador SHALL aceptar el perfil como argumento explícito y registrarlo en el contrato del proyecto para que hooks y skills lo usen.
+### Requirement: Explicit choice
+The installer SHALL accept the profile as an explicit argument and record it in the project contract so that hooks and skills can use it.
 
-#### Scenario: Perfil forzado
-- **WHEN** se instala con `--profile dataform-bigquery`
-- **THEN** el contrato del proyecto registra ese perfil y no se ejecuta la detección automática
+#### Scenario: Forced profile
+- **WHEN** installing with `--profile dataform-bigquery`
+- **THEN** the project contract records that profile and automatic detection is not run

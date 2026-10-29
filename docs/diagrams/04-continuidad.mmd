@@ -1,11 +1,11 @@
 flowchart LR
-  A["Abrir:<br/>briefing"] --> C["Trabajo"]
-  C --> D{"¿Hito<br/>terminado?"}
+  A["Open:<br/>briefing"] --> C["Work"]
+  C --> D{"Milestone<br/>done?"}
   D -->|"no"| C
-  D -->|"sí"| E["Handoff +<br/>sync"]
-  E --> G["Cerrar:<br/>checkpoint"]
-  G --> I["improve final<br/>≈3 llamadas"]
-  I -.->|"mañana"| A
+  D -->|"yes"| E["Handoff +<br/>sync"]
+  E --> G["Close:<br/>checkpoint"]
+  G --> I["final improve<br/>≈3 calls"]
+  I -.->|"tomorrow"| A
   classDef free fill:#E0F2EE,stroke:#176B7B,color:#12202B
   classDef cost fill:#FCE9D2,stroke:#C96A12,color:#12202B
   class A,G free

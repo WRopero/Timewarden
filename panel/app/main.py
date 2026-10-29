@@ -1,4 +1,4 @@
-"""Inspector de la memoria (Cognee): UI interna de SOLO LECTURA. Escucha en loopback."""
+"""Memory inspector (Cognee): internal READ-ONLY UI. Listens on loopback."""
 from __future__ import annotations
 
 import collections
@@ -15,14 +15,14 @@ from pydantic import BaseModel, Field
 from . import cognee_client as cognee
 from . import config, dockerapi, kb, observer, otel, pg, resources, storage, usage, vectors
 
-app = FastAPI(title="Inspector de memoria", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Memory Inspector", docs_url=None, redoc_url=None, openapi_url=None)
 
 
 @app.middleware("http")
 async def seguridad(request: Request, call_next):
     host = (request.headers.get("host") or "").split(":")[0].lower()
     if host not in config.ALLOWED_HOSTS:  # anti DNS-rebinding
-        return JSONResponse({"error": "host no permitido"}, status_code=421)
+        return JSONResponse({"error": "host not allowed"}, status_code=421)
     resp = await call_next(request)
     resp.headers["Content-Security-Policy"] = ("default-src 'self'; style-src 'self' 'unsafe-inline'; "
                                                "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'")
@@ -41,25 +41,25 @@ async def _rejected(_, exc):
 
 @app.exception_handler(psycopg.Error)
 async def _pgerr(_, exc):
-    msg = (str(exc).splitlines() or ["error de base de datos"])[0][:300]
+    msg = (str(exc).splitlines() or ["database error"])[0][:300]
     return JSONResponse({"error": msg}, status_code=400 if isinstance(exc, psycopg.errors.SyntaxError) else 502)
 
 
 @app.exception_handler(cognee.CogneeUnavailable)
 async def _cogerr(_, exc):
-    return JSONResponse({"error": f"Cognee no responde: {exc}"}, status_code=502)
+    return JSONResponse({"error": f"Cognee is not responding: {exc}"}, status_code=502)
 
 
 def safe(fn, *a, **k):
     try:
         return fn(*a, **k)
-    except Exception as exc:  # una pieza caida no debe tumbar el resumen
+    except Exception as exc:  # one failed component must not take down the summary
         return {"ok": False, "error": str(exc)[:160]}
 
 
 def _mcp_health() -> dict:
     try:
-        r = httpx.get(f"{config.COGNEE_MCP_URL}/health", timeout=4, headers={"Host": "localhost"})  # el MCP rechaza otros Host
+        r = httpx.get(f"{config.COGNEE_MCP_URL}/health", timeout=4, headers={"Host": "localhost"})  # the MCP rejects other Hosts
         return {"ok": r.status_code == 200}
     except httpx.HTTPError as exc:
         return {"ok": False, "error": str(exc)[:120]}
@@ -174,7 +174,7 @@ class SearchIn(BaseModel):
 
 @app.post("/api/search")
 def search(body: SearchIn):
-    """Recuperacion CHUNKS: no usa LLM y no modifica datos."""
+    """CHUNKS retrieval: does not use an LLM and does not modify data."""
     res = cognee.post("/api/v1/search", {"searchType": "CHUNKS", "datasets": [body.dataset], "query": body.query,
                                          "topK": body.top_k}) or []
     reg = {r["data_id"]: r for r in observer.registry() if r.get("data_id")}
@@ -236,7 +236,7 @@ def api_resources():
 
 @app.post("/api/resources/host")
 def api_resources_host():
-    """Una medición del Mac bajo demanda (sin proceso residente en el Mac)."""
+    """An on-demand measurement of the Mac (no resident process on the Mac)."""
     return resources.measure_host()
 
 
@@ -248,7 +248,7 @@ def registry():
 
 @app.get("/api/kb")
 def kb_overview():
-    """Tamaño de la base de conocimiento por proyecto/dataset y señales para decidir compactar o eliminar."""
+    """Size of the knowledge base per project/dataset and signals to decide whether to compact or delete."""
     return kb.overview()
 
 
@@ -256,7 +256,7 @@ def kb_overview():
 def kb_detail(dataset_id: str):
     ds = next((d for d in (cognee.get("/api/v1/datasets") or []) if d["id"] == dataset_id), None)
     if not ds:
-        raise HTTPException(404, "Dataset no encontrado")
+        raise HTTPException(404, "Dataset not found")
     gsum = {g["datasetId"]: g for g in (cognee.get("/api/v1/datasets/graph-summary") or [])}
     return kb.dataset_report(ds, storage.graph_files(), gsum, kb._avg_tokens_per_call(), observer.registry())
 

@@ -8,5 +8,5 @@ mkdir -p "$REPO/.claude/skills"
 for s in "$ROOT"/skills/project-memory-*; do
   n=$(basename "$s"); ln -sfn "$s" "$REPO/.claude/skills/$n"
   grep -qxF ".claude/skills/$n" "$REPO/.git/info/exclude" 2>/dev/null || echo ".claude/skills/$n" >> "$REPO/.git/info/exclude"
-  echo "instalada: $n"
+  echo "installed: $n"
 done

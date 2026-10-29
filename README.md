@@ -2,57 +2,57 @@
 
 # Timewarden
 
-*El guardián del tiempo de tu proyecto:* recuerda qué se decidió, qué se desplegó y en qué rama quedó cada cosa.
+*The guardian of your project's time:* it remembers what was decided, what was deployed, and which branch each thing ended up on.
 
-**Memoria persistente, verificable y local para agentes de código (Claude Code), con OpenSpec como director de cada cambio.**
+**Persistent, verifiable, local memory for code agents (Claude Code), with OpenSpec directing every change.**
 
-Timewarden convierte un repositorio en un proyecto que *recuerda*: al abrir una sesión el agente ya sabe el objetivo, las decisiones vigentes, qué está desplegado y qué no (por rama), qué vulnerabilidades hay abiertas y en qué quedó el último trabajo. Para lo que no está en ese resumen, consulta una memoria semántica que corre **en tu propio equipo** (Docker), sin costo por consulta.
+Timewarden turns a repository into a project that *remembers*: when a session opens, the agent already knows the goal, the current decisions, what is deployed and what isn't (per branch), which vulnerabilities are open, and where the last piece of work was left off. For anything not in that summary, it queries a semantic memory that runs **on your own machine** (Docker), at no cost per query.
 
-> Se instala solo: le pasas la carpeta a un agente, él detecta el tipo de proyecto (dbt, Dataform, Snowflake, BigQuery, aplicación web…), **te pregunta lo que sea ambiguo** y deja todo listo. Ver [`seed-bundle/AGENT_PROMPT.md`](seed-bundle/AGENT_PROMPT.md).
+> It installs itself: you hand the folder to an agent, it detects the project type (dbt, Dataform, Snowflake, BigQuery, web application…), **asks you about anything ambiguous**, and leaves everything ready. See [`seed-bundle/AGENT_PROMPT.md`](seed-bundle/AGENT_PROMPT.md).
 
-## Qué obtienes
+## What you get
 
-| Capacidad | Qué hace | Cuesta tokens |
+| Capability | What it does | Costs tokens |
 |---|---|---|
-| **Briefing de arranque** | Un hook inyecta ~1 500 tokens: objetivo, decisiones, reglas, pendientes, despliegues, seguridad, cambios activos de OpenSpec y el checkpoint de la rama actual | No (determinista, sin LLM) |
-| **Recuperación semántica** | Skill `project-memory-recall` + MCP: busca en la memoria por fragmentos, aislada por proyecto | No (embeddings locales) |
-| **Checkpoint por rama** | Al cerrar/compactar guarda rama, HEAD, cambios sin commit y últimos pedidos | No |
-| **Registro de despliegues** | Qué commit está en cada entorno, cuántos commits faltan y si la rama actual está integrada/desplegada | No |
-| **Versiones y seguridad** | Inventario de dependencias, historial (`security` vs `upgrade`), auditoría de vulnerabilidades (OSV) lanzada sola al abrir sesión y pendientes visibles | No |
-| **OpenSpec dirige los cambios** | Regla obligatoria: propuesta → revisión → implementación → archivo; los specs también se indexan en la memoria | Solo al indexar |
-| **Perfiles de datos** | Reglas especializadas para dbt + Snowflake, Dataform + BigQuery, BigQuery/Terraform, apps web | No |
-| **Panel Management Memory** | Tablero de solo lectura: salud, vectores, grafo, PostgreSQL, tokens/costo, uso de la memoria | No |
+| **Startup briefing** | A hook injects ~1,500 tokens: goal, decisions, rules, pending items, deployments, security, active OpenSpec changes, and the current branch's checkpoint | No (deterministic, no LLM) |
+| **Semantic recall** | `project-memory-recall` skill + MCP: searches the memory by fragments, isolated per project | No (local embeddings) |
+| **Per-branch checkpoint** | On close/compaction it saves the branch, HEAD, uncommitted changes, and the latest requests | No |
+| **Deployment registry** | Which commit is in each environment, how many commits are missing, and whether the current branch is merged/deployed | No |
+| **Versions and security** | Dependency inventory, history (`security` vs `upgrade`), vulnerability audit (OSV) launched automatically when a session opens, and visible pending items | No |
+| **OpenSpec directs changes** | Mandatory rule: proposal → review → implementation → archive; specs are also indexed in the memory | Only when indexing |
+| **Data profiles** | Specialized rules for dbt + Snowflake, Dataform + BigQuery, BigQuery/Terraform, web apps | No |
+| **Management Memory dashboard** | Read-only board: health, vectors, graph, PostgreSQL, tokens/cost, memory usage | No |
 
-Indexar documentos nuevos sí consume la suscripción de Claude (≈ 2 llamadas por fragmento); consultar no.
+Indexing new documents does consume your Claude subscription (≈ 2 calls per fragment); querying does not.
 
-## Instalación en 4 comandos
+## Installation in 4 commands
 ```bash
 cd Timewarden
 seed-bundle/seed.sh doctor                                   # requisitos
 seed-bundle/seed.sh machine --yes                            # una vez por equipo (Docker + observer)
-seed-bundle/seed.sh project /ruta/al/repo mi-proyecto --lang auto --profile auto
+seed-bundle/seed.sh project /path/to/repo my-project --lang auto --profile auto
 seed-bundle/seed.sh panel --yes                              # panel en http://127.0.0.1:45876
 ```
-`--lang auto` y `--profile auto` detectan idioma y tipo de proyecto; si no están claros **salen con código 3 para que el agente te pregunte**. Guía completa: [`docs/INSTALL.md`](docs/INSTALL.md) (para el agente: [`seed-bundle/SEED.md`](seed-bundle/SEED.md)).
+`--lang auto` and `--profile auto` detect the language and project type; if they are unclear, they **exit with code 3 so the agent asks you**. Full guide: [`docs/INSTALL.md`](docs/INSTALL.md) (for the agent: [`seed-bundle/SEED.md`](seed-bundle/SEED.md)).
 
-## Documentación
-| Documento | Contenido |
+## Documentation
+| Document | Contents |
 |---|---|
-| [`docs/INSTALL.md`](docs/INSTALL.md) | **Cómo instalarlo** paso a paso (con agente o a mano), códigos de salida, otro equipo, actualizar y desinstalar |
-| [`docs/COMPONENTS.md`](docs/COMPONENTS.md) | **Para qué es cada cosa**: carpetas, scripts, skills, hooks, contenedores y archivos que se crean |
-| [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md) | Cómo funciona, con grafos: instalación, ciclo de una sesión, auditoría de seguridad, despliegues, OpenSpec |
-| [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md) | Todo de lo que depende (imágenes, versiones, herramientas) y qué sale de tu equipo |
-| [`docs/DATA_PROJECTS.md`](docs/DATA_PROJECTS.md) | Proyectos de datos: BigQuery, Dataform, Snowflake, dbt |
-| [`docs/OPENSPEC.md`](docs/OPENSPEC.md) | Cómo OpenSpec dirige el trabajo y se vincula con la memoria |
-| [`docs/SECURITY_AND_PRIVACY.md`](docs/SECURITY_AND_PRIVACY.md) | Privacidad, secretos, superficie de red y prohibiciones |
-| [`docs/architecture.md`](docs/architecture.md), [`docs/operations.md`](docs/operations.md), [`docs/continuity.md`](docs/continuity.md), [`docs/token-strategy.md`](docs/token-strategy.md), [`docs/diagrams.md`](docs/diagrams.md) | Arquitectura detallada, operación diaria, continuidad entre sesiones, estrategia de tokens, diagramas |
-| [`seed-bundle/spec/`](seed-bundle/spec/Cognee-memory-specification.md) | Especificación técnica completa y tabla de resolución de problemas (§21.7) |
+| [`docs/INSTALL.md`](docs/INSTALL.md) | **How to install it** step by step (with an agent or by hand), exit codes, another machine, updating and uninstalling |
+| [`docs/COMPONENTS.md`](docs/COMPONENTS.md) | **What each thing is for**: folders, scripts, skills, hooks, containers, and the files that get created |
+| [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md) | How it works, with graphs: installation, the lifecycle of a session, security audit, deployments, OpenSpec |
+| [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md) | Everything it depends on (images, versions, tools) and what leaves your machine |
+| [`docs/DATA_PROJECTS.md`](docs/DATA_PROJECTS.md) | Data projects: BigQuery, Dataform, Snowflake, dbt |
+| [`docs/OPENSPEC.md`](docs/OPENSPEC.md) | How OpenSpec directs the work and links to the memory |
+| [`docs/SECURITY_AND_PRIVACY.md`](docs/SECURITY_AND_PRIVACY.md) | Privacy, secrets, network surface, and prohibitions |
+| [`docs/architecture.md`](docs/architecture.md), [`docs/operations.md`](docs/operations.md), [`docs/continuity.md`](docs/continuity.md), [`docs/token-strategy.md`](docs/token-strategy.md), [`docs/diagrams.md`](docs/diagrams.md) | Detailed architecture, day-to-day operation, continuity between sessions, token strategy, diagrams |
+| [`seed-bundle/spec/`](seed-bundle/spec/Cognee-memory-specification.md) | Full technical specification and troubleshooting table (§21.7) |
 
-## Requisitos
-macOS con Docker Desktop (**única plataforma validada**), Claude Code ≥ 2.1.287 con sesión iniciada, Python 3, git, [OpenSpec](https://github.com/Fission-AI/OpenSpec) y conexión a internet en la primera instalación. Detalle y versiones: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md).
+## Requirements
+macOS with Docker Desktop (**the only validated platform**), Claude Code ≥ 2.1.287 with an active login, Python 3, git, [OpenSpec](https://github.com/Fission-AI/OpenSpec), and an internet connection during the first installation. Details and versions: [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md).
 
-## Desarrollo con OpenSpec
-Este repositorio se desarrolla con su propio método: los specs vigentes están en [`openspec/specs/`](openspec/specs/) y cada cambio pasa por `openspec/changes/`.
+## Development with OpenSpec
+This repository is developed with its own method: the current specs are in [`openspec/specs/`](openspec/specs/) and every change goes through `openspec/changes/`.
 
-## Licencia
-[MIT](LICENSE). Logo: reloj de arena y línea de tiempo ramificada con el monograma WR; inspirado en la estética retro de «autoridad del tiempo», sin usar ningún material protegido.
+## License
+[MIT](LICENSE). Logo: hourglass and branching timeline with the WR monogram; inspired by the retro "time authority" aesthetic, without using any protected material.

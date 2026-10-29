@@ -1,29 +1,29 @@
-# Estrategia para no quemar tokens
+# Token Strategy
 
-Fuentes: Cognee (nota tecnica de costo, skill `cognee-performance`, docs de search types) y medicion propia (2026-10-26).
+Sources: Cognee (cost technical note, `cognee-performance` skill, search types docs) and our own measurement (2026-10-26).
 
-## Donde se va el costo
-| Etapa | Costo | Evidencia |
+## Where the cost goes
+| Stage | Cost | Evidence |
 |---|---|---|
-| **Ingesta (`cognify`)** | Dominante. ~2 llamadas LLM por chunk (resumen ~27 % + grafo ~73 %) | Cognee: ~23–25× los tokens del corpus. Medido aqui: ~307 000 tokens para ~4 100 de corpus (~75×; cada `claude -p` arrastra ~23 k de prompt cacheado) |
-| Consulta `CHUNKS` | 0 llamadas LLM | docs search types |
-| Consulta `GRAPH_COMPLETION` (defecto de MCP sin `search_type`) | ≥1 llamada | idem; COT/DECOMPOSITION/CONTEXT_EXTENSION: varias |
-| Inyeccion por prompt del plugin | hasta 9 000 caracteres (~2 300 tokens) por prompt | README plugin (`COGNEE_INJECT_MAX_CHARS`) |
-| Verificar leyendo codigo | tokens de lectura por archivo | A/B propio: B costo 3× A por esto y por el recall |
+| **Ingestion (`cognify`)** | Dominant. ~2 LLM calls per chunk (summary ~27 % + graph ~73 %) | Cognee: ~23–25× the corpus tokens. Measured here: ~307 000 tokens for ~4 100 of corpus (~75×; each `claude -p` drags ~23 k of cached prompt) |
+| `CHUNKS` query | 0 LLM calls | search types docs |
+| `GRAPH_COMPLETION` query (MCP default without `search_type`) | ≥1 call | ditto; COT/DECOMPOSITION/CONTEXT_EXTENSION: several |
+| Per-prompt injection by the plugin | up to 9 000 characters (~2 300 tokens) per prompt | plugin README (`COGNEE_INJECT_MAX_CHARS`) |
+| Verifying by reading code | read tokens per file | Own A/B: B cost 3× A because of this and because of recall |
 
-`chunkSize` **no** ayudo con documentos pequeños (3 chunks con 2000 o 4000 tokens; 6–7 llamadas): el costo sigue al numero de parrafos/secciones.
+`chunkSize` did **not** help with small documents (3 chunks with 2000 or 4000 tokens; 6–7 calls): cost follows the number of paragraphs/sections.
 
-## Reglas
-1. **Cognee solo donde Markdown directo no alcanza.** Corpus < ~30 k tokens: cargarlo/leerlo directo (CLAUDE.md, grep). Break-even de ingesta con corpus de ~4 k tokens: >100 consultas. Cognee compensa con corpus grande, varios proyectos/agentes o relaciones entre documentos (la propia Cognee reporta break-even de ~23–26 consultas con corpus de 16–200 k tokens).
-2. **No duplicar lo que ya esta en contexto.** CLAUDE.md se carga en cada sesion; indexar copias suyas paga ingesta sin beneficio. Indexar lo que *no* esta ahi (historial de decisiones, runbooks, specs).
-3. **Ingestar poco y en lote:** `memctl.sh sync` una vez por tarea/hito, nunca por edicion. El registro por hash ya evita reprocesar (0,28 s, 0 llamadas). Documentos densos y concisos: menos parrafos = menos chunks.
-4. **Consultar bajo demanda:** recall explicito (skill) con `search_type=CHUNKS`, `top_k` 3–5, una vez por tarea. Sin recall automatico por prompt: la captura esta apagada y el dataset de sesiones vacio (el hook inyecta ~nada); si algun dia se activa, `COGNEE_INJECT_MAX_CHARS=3000`, `COGNEE_RECALL_PASSAGE_CHARS=600`.
-5. **Frescura por Git, no por lectura:** `scripts/memory_stale.py` (0 tokens) decide si hace falta abrir codigo.
-6. **Apagado de extras (aplicado):** `AUTO_FEEDBACK=false`, `IMPROVE_AUTO_ENABLED=false` (servidor), `COGNEE_AUTO_IMPROVE_EVERY=0` (plugin), captura de sesiones off, `CODE_AUTOINDEX=off`.
-7. **Medir antes de ampliar:** `analytics` (A/B) + `memctl.sh eval`. Un ahorro negativo es un resultado valido.
+## Rules
+1. **Cognee only where direct Markdown is not enough.** Corpus < ~30 k tokens: load/read it directly (CLAUDE.md, grep). Ingestion break-even with a ~4 k-token corpus: >100 queries. Cognee pays off with a large corpus, several projects/agents, or relationships between documents (Cognee itself reports a break-even of ~23–26 queries with a 16–200 k-token corpus).
+2. **Don't duplicate what is already in context.** CLAUDE.md is loaded in every session; indexing copies of it pays for ingestion with no benefit. Index what is *not* there (decision history, runbooks, specs).
+3. **Ingest little and in batches:** `memctl.sh sync` once per task/milestone, never per edit. The hash registry already avoids reprocessing (0.28 s, 0 calls). Dense, concise documents: fewer paragraphs = fewer chunks.
+4. **Query on demand:** explicit recall (skill) with `search_type=CHUNKS`, `top_k` 3–5, once per task. No automatic recall per prompt: capture is off and the sessions dataset is empty (the hook injects ~nothing); if it is ever enabled, `COGNEE_INJECT_MAX_CHARS=3000`, `COGNEE_RECALL_PASSAGE_CHARS=600`.
+5. **Freshness via Git, not by reading:** `scripts/memory_stale.py` (0 tokens) decides whether code needs to be opened.
+6. **Extras turned off (applied):** `AUTO_FEEDBACK=false`, `IMPROVE_AUTO_ENABLED=false` (server), `COGNEE_AUTO_IMPROVE_EVERY=0` (plugin), session capture off, `CODE_AUTOINDEX=off`.
+7. **Measure before expanding:** `analytics` (A/B) + `memctl.sh eval`. A negative saving is a valid result.
 
-## Palancas que existen pero no se aplicaron (y por que)
-- `extractor="gliner"` (grafo local sin LLM): solo en el SDK `remember()`, no en la API REST de 1.6.5.
-- Modelos baratos por etapa (`LLM_EXTRACTION_MODEL`...): el observer ya usa `haiku`, el mas barato disponible.
-- `data_per_batch`/`chunks_per_batch`: reparten carga, no reducen tokens.
-- Prompt caching propio de Cognee: no documentado por ellos.
+## Levers that exist but were not applied (and why)
+- `extractor="gliner"` (local graph without an LLM): only in the SDK `remember()`, not in the REST API of 1.6.5.
+- Cheap models per stage (`LLM_EXTRACTION_MODEL`...): the observer already uses `haiku`, the cheapest available.
+- `data_per_batch`/`chunks_per_batch`: spread the load, don't reduce tokens.
+- Cognee's own prompt caching: not documented by them.

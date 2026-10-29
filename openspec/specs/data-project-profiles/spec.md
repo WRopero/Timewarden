@@ -1,38 +1,38 @@
 # data-project-profiles Specification
 
 ## Purpose
-Dar a los proyectos de datos (dbt, Dataform, Snowflake, BigQuery) reglas operativas, exclusiones de credenciales y criterios de despliegue propios.
+Give data projects (dbt, Dataform, Snowflake, BigQuery) their own operating rules, credential exclusions, and deployment criteria.
 
 ## Requirements
 
-### Requirement: Reglas de memoria para proyectos de datos
-Cada perfil de datos SHALL aportar al agente reglas operativas que se inyectan en la sección de memoria del `CLAUDE.md` del proyecto y plantillas de documentos de memoria específicas (modelos, fuentes, linaje, entornos, costos).
+### Requirement: Memory rules for data projects
+Each data profile SHALL provide the agent with operating rules that are injected into the memory section of the project's `CLAUDE.md`, along with memory document templates specific to data work (models, sources, lineage, environments, costs).
 
-#### Scenario: Perfil Dataform sobre BigQuery
-- **WHEN** el proyecto usa las capas `dataform` y `bigquery`
-- **THEN** las reglas incluyen estimar bytes procesados antes de ejecutar consultas costosas (dry run), exigir particionado y clustering en tablas grandes, no ejecutar ni reprogramar workflows de producción sin aprobación, y distinguir entornos por proyecto y dataset
+#### Scenario: Dataform profile on BigQuery
+- **WHEN** the project uses the `dataform` and `bigquery` layers
+- **THEN** the rules include estimating bytes processed before running expensive queries (dry run), requiring partitioning and clustering on large tables, not running or rescheduling production workflows without approval, and distinguishing environments by project and dataset
 
-#### Scenario: Perfil dbt sobre Snowflake
-- **WHEN** el proyecto usa las capas `dbt` y `snowflake`
-- **THEN** las reglas incluyen respetar los targets (`dev`/`prod`), no ejecutar `dbt run` ni `dbt build` contra `prod` sin aprobación, declarar tests y documentación en cada modelo, y vigilar el costo de warehouse (tamaño y auto-suspensión)
+#### Scenario: dbt profile on Snowflake
+- **WHEN** the project uses the `dbt` and `snowflake` layers
+- **THEN** the rules include respecting targets (`dev`/`prod`), not running `dbt run` or `dbt build` against `prod` without approval, declaring tests and documentation on every model, and watching warehouse cost (size and auto-suspend)
 
-### Requirement: Seguridad de credenciales en proyectos de datos
-Los perfiles MUST prohibir guardar credenciales, cuentas de servicio, llaves privadas o contenido de `profiles.yml` en la memoria, y MUST excluir de la indexación archivos de credenciales y salidas con datos reales.
+### Requirement: Credential security in data projects
+Profiles MUST forbid storing credentials, service accounts, private keys, or the contents of `profiles.yml` in memory, and MUST exclude credential files and outputs containing real data from indexing.
 
-#### Scenario: Archivos excluidos
-- **WHEN** se instala un perfil de datos
-- **THEN** el contrato del proyecto excluye `profiles.yml`, `*.json` de cuentas de servicio, `.env*` y directorios de datos de muestra
+#### Scenario: Excluded files
+- **WHEN** a data profile is installed
+- **THEN** the project contract excludes `profiles.yml`, service account `*.json` files, `.env*`, and sample data directories
 
-### Requirement: Versiones de herramientas de datos como dependencias vigiladas
-El registro de dependencias SHALL incluir las versiones de dbt (paquetes de `packages.yml` y adaptadores), `@dataform/core` y del CLI cuando existan, de modo que los cambios por seguridad queden registrados.
+### Requirement: Data tool versions as monitored dependencies
+The dependency registry SHALL include the versions of dbt (`packages.yml` packages and adapters), `@dataform/core`, and the CLI when present, so that security-related changes are recorded.
 
-#### Scenario: Cambio de versión de dbt
-- **WHEN** cambia la versión fijada de un adaptador o paquete de dbt
-- **THEN** el historial registra la fecha, versión anterior y nueva, y si el commit menciona una vulnerabilidad se marca como `security`
+#### Scenario: dbt version change
+- **WHEN** the pinned version of a dbt adapter or package changes
+- **THEN** the history records the date, previous version, and new version, and if the commit mentions a vulnerability it is marked as `security`
 
-### Requirement: Despliegue en proyectos de datos
-Para proyectos de datos, "desplegado" SHALL entenderse como el commit efectivamente ejecutado o publicado en el entorno (configuración de release de Dataform o job de producción de dbt), y solo se registra tras verificar su ejecución.
+### Requirement: Deployment in data projects
+For data projects, "deployed" SHALL be understood as the commit actually executed or published in the environment (Dataform release configuration or dbt production job), and is only recorded after its execution has been verified.
 
-#### Scenario: Registro tras una ejecución de producción
-- **WHEN** el job de producción termina correctamente para un commit
-- **THEN** el agente registra ese commit en el entorno `prod` del registro de despliegues
+#### Scenario: Recording after a production run
+- **WHEN** the production job finishes successfully for a commit
+- **THEN** the agent records that commit under the `prod` environment in the deployment registry

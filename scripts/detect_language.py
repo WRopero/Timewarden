@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Detecta si un repositorio esta escrito en espanol o en ingles (heuristica de palabras funcionales, sin red).
+"""Detects whether a repository is written in Spanish or English (function-word heuristic, no network).
 
-Uso: detect_language.py <repo>
-Salida (una linea, parseable): LANG=<es|en|unknown> CONFIDENCE=<0-1> SAMPLES=<n> ES=<n> EN=<n>
-Muestrea README*, CLAUDE.md, AGENTS.md y docs/**/*.md (max 40 archivos, 20 KB cada uno).
-Codigo de salida: 0 = confiable (>= 0.75), 2 = ambiguo o sin texto: PREGUNTA al usuario.
+Usage: detect_language.py <repo>
+Output (one line, parseable): LANG=<es|en|unknown> CONFIDENCE=<0-1> SAMPLES=<n> ES=<n> EN=<n>
+Samples README*, CLAUDE.md, AGENTS.md and docs/**/*.md (max 40 files, 20 KB each).
+Exit code: 0 = reliable (>= 0.75), 2 = ambiguous or no text: ASK the user.
 """
 import re, sys
 from pathlib import Path

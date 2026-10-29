@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Sincronizacion incremental de docs/agent-memory/**.md hacia Cognee.
+"""Incremental sync of docs/agent-memory/**.md to Cognee.
 
-Uso:
+Usage:
   sync_markdown.py <repo> [--apply] [--status] [--no-verify]
 
-Sin --apply solo muestra el plan (nuevos / cambiados / sin cambios / borrados).
-Estados del registro: pending -> submitted -> indexed | unverified | error.
-Un documento solo pasa a `indexed` si una busqueda devuelve su marcador `doc_id=`.
+Without --apply it only shows the plan (new / changed / unchanged / deleted).
+Registry states: pending -> submitted -> indexed | unverified | error.
+A document only becomes `indexed` if a search returns its `doc_id=` marker.
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ SCHEMA_VERSION = 1
 EMBEDDER = "jinaai/jina-embeddings-v2-base-es"
 
 
-# -- configuracion del proyecto (YAML minimo, solo el subconjunto usado) -----
+# -- project configuration (minimal YAML, only the subset in use) -----
 def load_project(repo: Path) -> dict:
     cfg: dict = {}
     key = sub = None
@@ -43,12 +43,12 @@ def load_project(repo: Path) -> dict:
             cfg.setdefault(key, []).append(line[2:].strip().strip("'\""))
         elif ":" in line:
             k, v = [p.strip() for p in line.split(":", 1)]
-            v = re.sub(r"\s+#.*$", "", v).strip("'\"")  # comentarios en linea
+            v = re.sub(r"\s+#.*$", "", v).strip("'\"")  # inline comments
             if indent == 0:
                 key, sub = k, None
                 cfg[k] = {} if v == "" else (int(v) if v.isdigit() else v)
                 if v == "":
-                    cfg[k] = []  # se convierte a dict si trae subclaves
+                    cfg[k] = []  # converted to a dict if it has subkeys
             else:
                 if isinstance(cfg[key], list):
                     cfg[key] = {}
@@ -78,7 +78,7 @@ def enumerate_docs(repo: Path, cfg: dict) -> dict[str, dict]:
                 continue
             text = path.read_text(encoding="utf-8")
             meta, body = parse_frontmatter(text)
-            if rel.startswith("openspec/") and "type" not in meta:  # los specs de OpenSpec no traen frontmatter
+            if rel.startswith("openspec/") and "type" not in meta:  # OpenSpec specs have no frontmatter
                 meta = {**meta, "type": "openspec-spec" if "/specs/" in rel else "openspec-change-archived" if "/archive/" in rel else "openspec-change",
                         "status": "verified" if "/specs/" in rel or "/archive/" in rel else "draft"}
             docs[rel] = {
@@ -100,7 +100,7 @@ def payload(project_id: str, d: dict) -> str:
     return f"{header}\n{d['text']}"
 
 
-# -- registro ------------------------------------------------------------------
+# -- registry ------------------------------------------------------------------
 def load_registry() -> dict:
     return json.loads(REGISTRY.read_text()) if REGISTRY.exists() else {}
 
@@ -108,9 +108,9 @@ def load_registry() -> dict:
 def save_registry(reg: dict) -> None:
     tmp = REGISTRY.with_suffix(".tmp")
     tmp.write_text(json.dumps(reg, indent=2, ensure_ascii=False))
-    tmp.replace(REGISTRY)  # escritura atomica
-    # Copia en un directorio dedicado de solo lectura (Management Memory lo monta; el rename
-    # cambia el inode, asi que un bind-mount de archivo unico quedaria desactualizado).
+    tmp.replace(REGISTRY)  # atomic write
+    # Copy in a dedicated read-only directory (Management Memory mounts it; the rename
+    # changes the inode, so a single-file bind-mount would become stale).
     view = STATE_DIR / "view"
     view.mkdir(exist_ok=True)
     (view / "registry.json.tmp").write_text(json.dumps(reg, indent=2, ensure_ascii=False))
@@ -136,8 +136,8 @@ def plan(docs: dict, entries: dict) -> dict[str, list[str]]:
 
 
 def verify(c: Cognee, dataset: str, d: dict, data_id: str) -> bool:
-    """Un documento esta indexado si una busqueda por su titulo devuelve un
-    fragmento cuyo `document_id` es el data_id que Cognee le asigno."""
+    """A document is indexed if a search for its title returns a
+    chunk whose `document_id` is the data_id that Cognee assigned to it."""
     title = next((ln.lstrip("# ").strip() for ln in d["text"].splitlines() if ln.startswith("# ")), d["doc_id"])
     try:
         res = c.search(dataset, f"{title} {d['doc_id']}", "CHUNKS", top_k=8)
@@ -164,7 +164,7 @@ def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool) -> None
         try:
             retire(path)
             del entries[path]
-            print(f"  borrado   {path}")
+            print(f"  deleted   {path}")
         except CogneeError as exc:
             entries[path].update(status="error", last_error=str(exc)[:300])
     for path in p["new"] + p["changed"] + p["retry"]:
@@ -179,14 +179,14 @@ def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool) -> None
                              "status": "submitted", "data_id": data_id, "last_error": "",
                              "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}
             submitted.append(path)
-            print(f"  enviado   {path}")
+            print(f"  submitted {path}")
         except (CogneeError, KeyError, IndexError) as exc:
             entries[path] = {**entries.get(path, {}), "doc_id": d["doc_id"], "hash": d["hash"],
                              "status": "error", "last_error": str(exc)[:300]}
             print(f"  ERROR     {path}: {exc}")
         save_registry(reg)
     if submitted:
-        print(f"  cognify ({len(submitted)} documentos)...")
+        print(f"  cognify ({len(submitted)} documents)...")
         t = time.time()
         try:
             c.cognify(dataset)
@@ -195,11 +195,11 @@ def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool) -> None
                 entries[path].update(status="error", last_error=f"cognify: {str(exc)[:250]}")
             save_registry(reg)
             raise
-        print(f"  cognify listo en {time.time() - t:.0f}s")
+        print(f"  cognify done in {time.time() - t:.0f}s")
         for path in submitted:
             ok = verify(c, dataset, docs[path], entries[path]['data_id']) if do_verify else True
             entries[path]["status"] = "indexed" if ok else "unverified"
-            print(f"  {'indexado ' if ok else 'SIN VERIFICAR'} {path}")
+            print(f"  {'indexed  ' if ok else 'UNVERIFIED'} {path}")
     save_registry(reg)
 
 
@@ -217,7 +217,7 @@ def main() -> int:
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
-            print("otra sincronizacion esta en curso", file=sys.stderr)
+            print("another sync is in progress", file=sys.stderr)
             return 2
         reg = load_registry()
         docs = enumerate_docs(repo, cfg)
@@ -226,10 +226,10 @@ def main() -> int:
             counts: dict[str, int] = {}
             for e in entries.values():
                 counts[e["status"]] = counts.get(e["status"], 0) + 1
-            print(f"proyecto={cfg['project_id']} dataset={cfg['memory_dataset']} registrados={len(entries)} {counts}")
+            print(f"project={cfg['project_id']} dataset={cfg['memory_dataset']} registered={len(entries)} {counts}")
             return 0
         p = plan(docs, entries)
-        print(f"proyecto={cfg['project_id']}: " + ", ".join(f"{k}={len(v)}" for k, v in p.items()))
+        print(f"project={cfg['project_id']}: " + ", ".join(f"{k}={len(v)}" for k, v in p.items()))
         if not a.apply:
             for k in ("new", "changed", "retry", "deleted"):
                 for path in p[k]:

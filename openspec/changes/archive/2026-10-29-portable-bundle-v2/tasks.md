@@ -1,21 +1,21 @@
-## 1. Detección y perfiles
-- [x] 1.1 `scripts/detect_project_type.py` con evidencias, confianza y salida 3 si es ambiguo
-- [x] 1.2 `profiles/` con `dbt-snowflake`, `dataform-bigquery`, `bigquery-sql`, `webapp`, `generic` (es/en)
-- [x] 1.3 Integrar `--profile` en `install_project.py` y `seed.sh project`; registrar `profile:` y `memory_system:` en el contrato
-- [x] 1.4 Extender `memory_deps.py` a `packages.yml`/`dbt_project.yml`/`@dataform/core`
+## 1. Detection and profiles
+- [x] 1.1 `scripts/detect_project_type.py` with evidence, confidence, and exit code 3 if ambiguous
+- [x] 1.2 `profiles/` with `dbt-snowflake`, `dataform-bigquery`, `bigquery-sql`, `webapp`, `generic` (es/en)
+- [x] 1.3 Integrate `--profile` into `install_project.py` and `seed.sh project`; record `profile:` and `memory_system:` in the contract
+- [x] 1.4 Extend `memory_deps.py` to `packages.yml`/`dbt_project.yml`/`@dataform/core`
 
-## 2. Memoria de seguridad, despliegues y OpenSpec
-- [x] 2.1 Revisar `memory_deps.py`, `memory_audit.py`, `memory_deploy.py` y su integración en el briefing
-- [x] 2.2 Regla de ambigüedad y de OpenSpec en las plantillas de `CLAUDE.md` y en la skill de recall
-- [x] 2.3 Skill/rutas sin ubicaciones absolutas (usar `memory_system:` del contrato)
+## 2. Security, deployment, and OpenSpec memory
+- [x] 2.1 Review `memory_deps.py`, `memory_audit.py`, `memory_deploy.py` and their integration into the briefing
+- [x] 2.2 Ambiguity and OpenSpec rule in the `CLAUDE.md` templates and in the recall skill
+- [x] 2.3 Skill/paths without absolute locations (use `memory_system:` from the contract)
 
-## 3. Portabilidad y empaquetado
-- [x] 3.1 Quitar nombres de proyecto y cuentas del bundle, la spec y los textos
-- [x] 3.2 Raíz relocalizable y panel incluido en el paquete
-- [x] 3.3 `scripts/package_bundle.sh` con lista blanca y escaneo de neutralidad/secretos
-- [x] 3.4 `LEEME` y guía para proyectos de datos (BigQuery/Dataform, Snowflake/dbt)
+## 3. Portability and packaging
+- [x] 3.1 Remove project and account names from the bundle, the spec, and the texts
+- [x] 3.2 Relocatable root and panel included in the package
+- [x] 3.3 `scripts/package_bundle.sh` with an allowlist and neutrality/secrets scanning
+- [x] 3.4 `LEEME` and guide for data projects (BigQuery/Dataform, Snowflake/dbt)
 
-## 4. Verificación
-- [x] 4.1 Descomprimir en un directorio temporal y correr `doctor`
-- [x] 4.2 Instalar el contrato en repos de muestra dbt y Dataform y verificar detección y reglas
-- [x] 4.3 `openspec validate portable-bundle-v2` y archivar el cambio
+## 4. Verification
+- [x] 4.1 Unzip into a temporary directory and run `doctor`
+- [x] 4.2 Install the contract in sample dbt and Dataform repos and verify detection and rules
+- [x] 4.3 `openspec validate portable-bundle-v2` and archive the change

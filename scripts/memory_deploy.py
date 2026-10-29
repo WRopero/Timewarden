@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Registro de despliegues por entorno + estado de ramas respecto a lo desplegado. Determinista, sin LLM.
+"""Per-environment deployment log + branch status relative to what is deployed. Deterministic, no LLM.
 
-El registro vive en <repo>/.agent-memory/deployments.json (se versiona con el contrato del proyecto).
-  record <repo> <entorno> [--commit REF] [--date AAAA-MM-DD] [--note TXT]   anota que REF (por defecto HEAD) quedo desplegado
-  status <repo> [--lang es|en] [--branch RAMA]                              imprime estado compacto (lo usan el briefing y el checkpoint)
-Un despliegue SOLO se registra tras comprobarlo (salud OK); el script no puede saber por si solo que se desplego.
+The log lives in <repo>/.agent-memory/deployments.json (versioned with the project contract).
+  record <repo> <env> [--commit REF] [--date YYYY-MM-DD] [--note TXT]   records that REF (HEAD by default) was deployed
+  status <repo> [--lang es|en] [--branch BRANCH]                         prints compact status (used by the briefing and the checkpoint)
+A deployment is recorded ONLY after verifying it (health OK); the script cannot know on its own that something was deployed.
 """
 import json, subprocess, sys, time
 from pathlib import Path
@@ -48,7 +48,7 @@ def is_ancestor(repo, a, b):
     return git(repo, "merge-base", "--is-ancestor", a, b)[0] == 0
 
 
-def status(repo, lang="es", branch=None):
+def status(repo, lang="en", branch=None):
     t = T[lang]; data = load(repo); envs = data.get("environments", {})
     if not envs:
         return [t["none"]]
@@ -79,7 +79,7 @@ def status(repo, lang="es", branch=None):
 def record(repo, env, commit, date, note):
     rc, full = git(repo, "rev-parse", "--verify", commit + "^{commit}")
     if rc != 0:
-        sys.exit(f"commit desconocido: {commit}")
+        sys.exit(f"unknown commit: {commit}")
     data = load(repo)
     entry = {"commit": full, "at": date or time.strftime("%Y-%m-%d"), "branch": git(repo, "branch", "--show-current")[1] or None}
     if note:
@@ -88,7 +88,7 @@ def record(repo, env, commit, date, note):
     data.setdefault("history", []).append({"env": env, **entry}); data["history"] = data["history"][-30:]
     p = Path(repo) / ".agent-memory" / "deployments.json"
     p.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"OK: {env} -> {full[:7]} ({entry['at']}) en {p}")
+    print(f"OK: {env} -> {full[:7]} ({entry['at']}) in {p}")
 
 
 if __name__ == "__main__":
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     opt = lambda k, d=None: a[a.index(k) + 1] if k in a else d
     repo = Path(a[1]).resolve()
     if a[0] == "status":
-        print("\n".join(status(repo, opt("--lang", "es"), opt("--branch"))))
+        print("\n".join(status(repo, opt("--lang", "en"), opt("--branch"))))
     else:
         if len(a) < 3:
             sys.exit(__doc__)

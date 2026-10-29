@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Extrae de los transcripts de Claude Code CUANDO y COMO se usa la memoria (solo metadatos, 0 tokens, sin LLM).
+"""Extracts from Claude Code transcripts WHEN and HOW memory is used (metadata only, 0 tokens, no LLM).
 
-Lee ~/.claude/projects/*/*.jsonl (solo lectura) y escribe ~/.local/share/agents_memory_system/view/usage.jsonl,
-que Management Memory muestra en «Uso de la memoria». Una linea JSON por evento:
-  briefing   hook SessionStart inyecto el briefing (chars)
-  recall     consulta a la memoria: via MCP (tool) o via skill project-memory-recall (query truncada, dataset, ok/error, latencia, chars)
-  write      remember/handoff/document (la memoria se escribio o se pidio escribir)
-  plugin     resumen del plugin al abrir sesion («recall hit rate x/y», entradas guardadas)
-Solo se guarda la query truncada a 160 caracteres y el tamano del resultado, nunca el texto devuelto.
-Uso: usage_scan.py [--projects-dir DIR] [--out FILE]
+Reads ~/.claude/projects/*/*.jsonl (read-only) and writes ~/.local/share/agents_memory_system/view/usage.jsonl,
+which Management Memory shows in «Memory usage». One JSON line per event:
+  briefing   SessionStart hook injected the briefing (chars)
+  recall     memory query: via MCP (tool) or via the project-memory-recall skill (truncated query, dataset, ok/error, latency, chars)
+  write      remember/handoff/document (memory was written or a write was requested)
+  plugin     plugin summary when opening a session («recall hit rate x/y», saved entries)
+Only the query truncated to 160 characters and the result size are stored, never the returned text.
+Usage: usage_scan.py [--projects-dir DIR] [--out FILE]
 """
 import argparse, json, re
 from datetime import datetime
@@ -84,7 +84,7 @@ for f in sorted(Path(a.projects_dir).glob("*/*.jsonl")):
                 chars, err = result_info(b)
                 ev.update(chars=chars, ok=not err, latency_s=round(t - ev["ts"], 2) if t and ev["ts"] else None)
                 events.append(ev)
-    events.extend(pending.values())  # usos sin resultado visible
+    events.extend(pending.values())  # uses with no visible result
 
 events = [e for e in events if e.get("ts")]
 events.sort(key=lambda e: e["ts"])
@@ -95,4 +95,4 @@ tmp.replace(out)
 kinds = {}
 for e in events:
     kinds[e["kind"]] = kinds.get(e["kind"], 0) + 1
-print(f"{len(events)} eventos -> {out}  {kinds}")
+print(f"{len(events)} events -> {out}  {kinds}")

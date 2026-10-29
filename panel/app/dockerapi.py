@@ -1,6 +1,6 @@
-"""Estado de contenedores y llamadas a la API de Cognee (logs de acceso), via un proxy de Docker de SOLO LECTURA.
+"""Container status and Cognee API calls (access logs), via a READ-ONLY Docker proxy.
 
-El proxy (wollomatic/socket-proxy) solo deja pasar GET de /containers/json, /containers/<id>/json|logs|stats.
+The proxy (wollomatic/socket-proxy) only lets through GET requests to /containers/json, /containers/<id>/json|logs|stats.
 """
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def containers(project: str | None = None) -> list[dict]:
 
 
 def demux(raw: bytes) -> list[str]:
-    """Docker multiplexa stdout/stderr en tramas de 8 bytes de cabecera + carga."""
+    """Docker multiplexes stdout/stderr into frames made of an 8-byte header + payload."""
     lines, i = [], 0
     while i + 8 <= len(raw):
         size = struct.unpack(">I", raw[i + 4:i + 8])[0]
@@ -89,7 +89,7 @@ def parse_access(lines, ip_names: dict[str, str]) -> dict:
             continue
         ts, ip, method, path, code = m.groups()
         npath = normalize(path)
-        caller = ip_names.get(ip) or ("Mac (hooks, scripts, tu navegador)" if ip.endswith(".1") else ip)
+        caller = ip_names.get(ip) or ("Mac (hooks, scripts, your browser)" if ip.endswith(".1") else ip)
         if npath == "/health":
             health += 1
             continue
@@ -115,8 +115,8 @@ def api_calls(hours: int = 24) -> dict:
     cs = containers()
     api = next((c for c in cs if c.get("service") == "agents_cognee_api"), None)
     if not api:
-        return {"available": True, "error": "No se encontró el contenedor de la API"}
-    # nombres de los orígenes: contenedores del stack y de esta propia UI (otro proyecto Compose)
+        return {"available": True, "error": "API container not found"}
+    # names of the sources: containers of the stack and of this UI itself (another Compose project)
     ip_names = {ip: c["service"] for c in cs for ip in (c.get("ips") or {}).values() if ip}
     for c in containers("management_memory"):
         for ip in (c.get("ips") or {}).values():
@@ -126,5 +126,5 @@ def api_calls(hours: int = 24) -> dict:
     raw = _get(f"/containers/{api['full_id']}/logs?stdout=1&stderr=1&timestamps=1&since={since}&tail=50000", timeout=60).content
     res = parse_access(demux(raw), ip_names)
     res.update(available=True, hours=hours, container_started=api.get("started"),
-               note="Los logs solo cubren desde que arrancó el contenedor de la API (se pierden al recrearlo).")
+               note="The logs only cover the period since the API container started (they are lost when it is recreated).")
     return res

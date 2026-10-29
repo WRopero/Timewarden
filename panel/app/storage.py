@@ -1,4 +1,4 @@
-"""Tamaños en disco del volumen de Cognee (solo lectura: os.stat, nunca se abren los .lbug)."""
+"""Disk sizes of the Cognee volume (read-only: os.stat, the .lbug files are never opened)."""
 from __future__ import annotations
 
 import os

@@ -1,4 +1,4 @@
-"""Acceso de SOLO LECTURA a PostgreSQL (rol agents_inspector: pg_read_all_data, read-only, timeout)."""
+"""Read-only access to PostgreSQL (agents_inspector role: pg_read_all_data, read-only, timeout)."""
 from __future__ import annotations
 
 import datetime as dt
@@ -29,7 +29,7 @@ def connect() -> psycopg.Connection:
 
 
 def fmt(value: Any, type_name: str = "") -> Any:
-    """Convierte un valor a algo serializable y corto (vectores y textos largos se resumen)."""
+    """Converts a value into something serializable and short (vectors and long texts are summarized)."""
     if value is None or isinstance(value, (bool, int, float)):
         return value
     if isinstance(value, decimal.Decimal):
@@ -46,18 +46,18 @@ def fmt(value: Any, type_name: str = "") -> Any:
         s = str(value)
     if type_name == "vector" or (s.startswith("[") and s.count(",") > 40 and len(s) > 200):
         return f"<vector dim={s.count(',') + 1}>"
-    return s if len(s) <= 300 else f"{s[:300]}… (+{len(s) - 300} car.)"
+    return s if len(s) <= 300 else f"{s[:300]}… (+{len(s) - 300} chars)"
 
 
 def validate_query(text: str) -> str:
     q = (text or "").strip()
     q = q[:-1].strip() if q.endswith(";") else q
     if not q:
-        raise QueryRejected("La consulta está vacía")
+        raise QueryRejected("The query is empty")
     if ";" in q:
-        raise QueryRejected("Solo se permite una sentencia")
+        raise QueryRejected("Only a single statement is allowed")
     if not q.lower().lstrip("( ").startswith(_READONLY_START):
-        raise QueryRejected("Solo consultas de lectura (SELECT, WITH, EXPLAIN, SHOW, VALUES, TABLE)")
+        raise QueryRejected("Read-only queries only (SELECT, WITH, EXPLAIN, SHOW, VALUES, TABLE)")
     return q
 
 
@@ -101,7 +101,7 @@ def schemas() -> list[dict]:
 def _ensure_table(cur, schema: str, table: str) -> None:
     cur.execute("select 1 from information_schema.tables where table_schema=%s and table_name=%s", (schema, table))
     if not cur.fetchone():
-        raise QueryRejected("La tabla no existe")
+        raise QueryRejected("The table does not exist")
 
 
 def tables(schema: str, exact: bool = True) -> list[dict]:

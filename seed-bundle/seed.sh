@@ -1,70 +1,70 @@
 #!/usr/bin/env bash
-# Seed bundle: instala la memoria de proyecto (Cognee en Docker) en un Mac y en un repositorio nuevo.
-# Pensado para que lo ejecute un agente siguiendo SEED.md. Cada fase es idempotente y reporta OK/FALTA.
+# Seed bundle: installs project memory (Cognee in Docker) on a Mac and in a new repository.
+# Designed to be run by an agent following SEED.md. Each phase is idempotent and reports OK/MISSING.
 #
-#   seed.sh doctor                          comprueba requisitos (no cambia nada)
-#   seed.sh machine --yes                   levanta observer + stack Docker + llaves (una vez por Mac)
+#   seed.sh doctor                          checks requirements (changes nothing)
+#   seed.sh machine --yes                   starts observer + Docker stack + keys (once per Mac)
 #   seed.sh project <repo> <project_id> [--lang auto|es|en] [--profile auto|<capas>] [--no-openspec] [--no-capture] [--with-plugin]
-#                                           instala la memoria en el repo (contrato, hooks, skills, plantillas)
-#   seed.sh panel --yes                     levanta Management Memory (incluido en el kit, carpeta panel/) (panel de control, solo lectura)
-#   seed.sh verify [<repo>]                 comprobaciones de aceptacion rapidas
-# Sale con 3 si el idioma O el tipo de proyecto (perfil: dbt/dataform/snowflake/bigquery/webapp/...) es ambiguo: el agente DEBE preguntar al usuario.
+#                                           installs the memory in the repo (contract, hooks, skills, templates)
+#   seed.sh panel --yes                     starts Management Memory (included in the kit, panel/ folder) (control panel, read-only)
+#   seed.sh verify [<repo>]                 quick acceptance checks
+# Exits with 3 if the language OR the project type (profile: dbt/dataform/snowflake/bigquery/webapp/...) is ambiguous: the agent MUST ask the user.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 MS="$(cd "$HERE/.." && pwd)"
-MM_DIR="${MM_DIR:-$MS/panel}"            # el panel viaja dentro del kit (carpeta panel/); sobrescribible con MM_DIR
-MM_REPO_URL="${MM_REPO_URL:-}"            # solo si el kit no trae panel/: URL git de Management Memory
+MM_DIR="${MM_DIR:-$MS/panel}"            # the panel ships inside the kit (panel/ folder); overridable with MM_DIR
+MM_REPO_URL="${MM_REPO_URL:-}"            # only if the kit has no panel/: git URL of Management Memory
 ok() { printf '  \033[32mOK\033[0m     %s\n' "$*"; }
 miss() { printf '  \033[31mFALTA\033[0m  %s\n' "$*"; BAD=1; }
 BAD=0
 
 doctor() {
-  echo "Requisitos (spec 21.1):"
-  if [ "$(uname -s)" = Darwin ]; then ok "macOS $(sw_vers -productVersion 2>/dev/null)"; else echo "  --     $(uname -s): NO probado (solo se valido en macOS + Docker Desktop). Continua con cautela y reporta lo que falle; launchd no existe aqui."; fi
-  command -v docker >/dev/null && docker info >/dev/null 2>&1 && ok "Docker $(docker info --format '{{.ServerVersion}} · {{.NCPU}} CPU · {{.MemTotal}} B')" || miss "Docker no esta corriendo (abre Docker Desktop)"
-  command -v claude >/dev/null && ok "Claude Code $(claude --version 2>/dev/null | head -1) (el plugin pide >= 2.1.287)" || miss "claude no esta en PATH"
+  echo "Requirements (spec 21.1):"
+  if [ "$(uname -s)" = Darwin ]; then ok "macOS $(sw_vers -productVersion 2>/dev/null)"; else echo "  --     $(uname -s): NOT tested (only validated on macOS + Docker Desktop). Proceed with caution and report what fails; launchd does not exist here."; fi
+  command -v docker >/dev/null && docker info >/dev/null 2>&1 && ok "Docker $(docker info --format '{{.ServerVersion}} · {{.NCPU}} CPU · {{.MemTotal}} B')" || miss "Docker is not running (open Docker Desktop)"
+  command -v claude >/dev/null && ok "Claude Code $(claude --version 2>/dev/null | head -1) (the plugin requires >= 2.1.287)" || miss "claude is not in PATH"
   command -v python3 >/dev/null && ok "$(python3 --version)" || miss "python3"
   command -v git >/dev/null && ok "git" || miss "git"
-  command -v openspec >/dev/null && ok "OpenSpec $(openspec --version 2>/dev/null | head -1) (dirige las implementaciones)" \
-    || miss "openspec no esta instalado: curl -fsSL https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/scripts/binary/install.sh | sh   (revisa el script antes; alternativa: npm i -g @fission-ai/openspec)"
-  command -v gh >/dev/null && ok "gh (opcional, para GitHub)" || echo "  --     gh no instalado (opcional)"
+  command -v openspec >/dev/null && ok "OpenSpec $(openspec --version 2>/dev/null | head -1) (drives the implementations)" \
+    || miss "openspec is not installed: curl -fsSL https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/scripts/binary/install.sh | sh   (review the script first; alternative: npm i -g @fission-ai/openspec)"
+  command -v gh >/dev/null && ok "gh (optional, for GitHub)" || echo "  --     gh not installed (optional)"
   for p in 45873 45874 45875 8017 45876; do
-    if lsof -nP -iTCP:$p -sTCP:LISTEN >/dev/null 2>&1; then echo "  --     puerto $p ya en uso (normal si el stack ya corre)"; else ok "puerto $p libre"; fi
+    if lsof -nP -iTCP:$p -sTCP:LISTEN >/dev/null 2>&1; then echo "  --     port $p already in use (normal if the stack is already running)"; else ok "port $p free"; fi
   done
-  [ -f "$MS/deploy/docker/compose.yaml" ] && ok "kit en $MS" || miss "no encuentro deploy/docker/compose.yaml"
+  [ -f "$MS/deploy/docker/compose.yaml" ] && ok "kit at $MS" || miss "cannot find deploy/docker/compose.yaml"
   return $BAD
 }
 
 machine() {
-  [ "${1:-}" = "--yes" ] || { echo "Esto arranca contenedores y un proceso en el Mac. Repite con --yes tras confirmar con el usuario."; exit 1; }
+  [ "${1:-}" = "--yes" ] || { echo "This starts containers and a process on the Mac. Repeat with --yes after confirming with the user."; exit 1; }
   doctor >/dev/null || { doctor; exit 1; }
   echo "1/5 observer"; "$MS/scripts/observer.sh" start; "$MS/scripts/observer.sh" probe
-  echo "2/5 secretos (deploy/docker/.env, 0600)"; "$MS/scripts/gen_env.sh"
-  echo "3/5 stack (la primera vez descarga ~640 MB de embedder: 60-90 s o mas)"
+  echo "2/5 secrets (deploy/docker/.env, 0600)"; "$MS/scripts/gen_env.sh"
+  echo "3/5 stack (the first time it downloads ~640 MB of embedder: 60-90 s or more)"
   "$MS/scripts/dc.sh" up -d agents_postgres agents_cognee_api agents_cognee_mcp agents_otel_collector
   for i in $(seq 1 60); do curl -s -m 3 http://127.0.0.1:45874/health | grep -q '"status":"ready"' && break; sleep 5; done
-  curl -s -m 3 http://127.0.0.1:45874/health | grep -q '"status":"ready"' && ok "API lista" || { miss "la API no llego a ready (docker logs agents_cognee_api)"; exit 1; }
-  echo "4/5 llaves"; python3 -I "$MS/scripts/mint_mcp_key.py" mcp || true
+  curl -s -m 3 http://127.0.0.1:45874/health | grep -q '"status":"ready"' && ok "API ready" || { miss "the API never reached ready (docker logs agents_cognee_api)"; exit 1; }
+  echo "4/5 keys"; python3 -I "$MS/scripts/mint_mcp_key.py" mcp || true
   "$MS/scripts/dc.sh" up -d --force-recreate agents_cognee_mcp
-  if [ ! -f "$HOME/.cognee/.env" ]; then   # sin esto la llave quedaria sola y el plugin sin sus topes de costo
+  if [ ! -f "$HOME/.cognee/.env" ]; then   # without this the key would be left alone and the plugin without its cost caps
     mkdir -p "$HOME/.cognee" && chmod 700 "$HOME/.cognee"
     grep -v -E '^(COGNEE_API_KEY|COGNEE_PLUGIN_DATASET)=' "$MS/config/plugin.example.env" | sed -E 's/[[:space:]]+#.*$//' > "$HOME/.cognee/.env"; chmod 600 "$HOME/.cognee/.env"
   fi
   python3 -I "$MS/scripts/mint_mcp_key.py" plugin || true
   echo "5/5 plugin env (~/.cognee/.env)"
-  [ -f "$HOME/.cognee/.env" ] && ok "existe (se respeta; compara con config/plugin.example.env y spec 21.4)" || miss "falta ~/.cognee/.env: copia config/plugin.example.env y ajusta (spec 21.4)"
-  echo "persistencia tras reinicios (spec 20/23): LaunchAgent del observer"
-  [ "$(uname -s)" = Darwin ] && "$MS/scripts/observer_launchagent.sh" install >/dev/null 2>&1 && ok "LaunchAgent del observer instalado (reversible: observer_launchagent.sh uninstall)" \
-    || echo "  --     LaunchAgent no instalado (el plugin cognee-memory aun no esta; reintenta tras 'seed.sh project ... --with-plugin')"
+  [ -f "$HOME/.cognee/.env" ] && ok "exists (respected; compare with config/plugin.example.env and spec 21.4)" || miss "~/.cognee/.env is missing: copy config/plugin.example.env and adjust (spec 21.4)"
+  echo "persistence across restarts (spec 20/23): observer LaunchAgent"
+  [ "$(uname -s)" = Darwin ] && "$MS/scripts/observer_launchagent.sh" install >/dev/null 2>&1 && ok "observer LaunchAgent installed (reversible: observer_launchagent.sh uninstall)" \
+    || echo "  --     LaunchAgent not installed (the cognee-memory plugin is not there yet; retry after 'seed.sh project ... --with-plugin')"
 }
 
 project() {
-  local repo="${1:?uso: seed.sh project <repo> <project_id> [--lang auto|es|en] [--profile auto|<capas>] [--no-openspec] [--no-capture] [--with-plugin]}" pid="${2:?falta project_id}"; shift 2
+  local repo="${1:?usage: seed.sh project <repo> <project_id> [--lang auto|es|en] [--profile auto|<capas>] [--no-openspec] [--no-capture] [--with-plugin]}" pid="${2:?missing project_id}"; shift 2
   local lang=auto profile=auto osp=yes extra=() plugin=0
   while [ $# -gt 0 ]; do case "$1" in
-    --lang) lang="$2"; shift 2 ;; --profile) profile="$2"; shift 2 ;; --no-openspec) osp=no; shift ;; --no-capture) extra+=(--no-capture); shift ;; --with-plugin) plugin=1; shift ;; *) echo "opcion desconocida: $1"; exit 2 ;; esac; done
-  curl -s -m 4 http://127.0.0.1:45874/health | grep -q ready || { echo "El stack no responde: ejecuta antes 'seed.sh machine --yes'."; exit 1; }
-  # el codigo de salida 3 (idioma ambiguo) se propaga tal cual: el agente debe preguntar al usuario
+    --lang) lang="$2"; shift 2 ;; --profile) profile="$2"; shift 2 ;; --no-openspec) osp=no; shift ;; --no-capture) extra+=(--no-capture); shift ;; --with-plugin) plugin=1; shift ;; *) echo "unknown option: $1"; exit 2 ;; esac; done
+  curl -s -m 4 http://127.0.0.1:45874/health | grep -q ready || { echo "The stack is not responding: run 'seed.sh machine --yes' first."; exit 1; }
+  # exit code 3 (ambiguous language) is propagated as-is: the agent must ask the user
   python3 -I "$MS/scripts/install_project.py" "$repo" --project-id "$pid" --lang "$lang" --profile "$profile" --openspec "$osp" ${extra[@]+"${extra[@]}"}
   local cmds=("claude plugin marketplace add topoteretes/cognee-integrations"
               "claude plugin install cognee-memory@cognee --scope local"
@@ -72,41 +72,41 @@ project() {
   if [ "$plugin" = 1 ]; then
     (cd "$repo" && for c in "${cmds[@]}"; do echo "+ $c"; eval "$c"; done)
   else
-    echo; echo "Falta (modifica ajustes globales de Claude Code; ejecuta desde $repo tras confirmar con el usuario):"
-    printf '  %s\n' "${cmds[@]}"; echo "  o repite este comando con --with-plugin"
+    echo; echo "Remaining (modifies global Claude Code settings; run from $repo after confirming with the user):"
+    printf '  %s\n' "${cmds[@]}"; echo "  or repeat this command with --with-plugin"
   fi
-  echo; echo "Siguiente: redactar docs/agent-memory/project.md y el corpus piloto (skill project-memory-bootstrap), luego:"
+  echo; echo "Next: write docs/agent-memory/project.md and the pilot corpus (project-memory-bootstrap skill), then:"
   echo "  $MS/scripts/memctl.sh sync $repo           # plan"
-  echo "  $MS/scripts/memctl.sh sync $repo --apply   # indexa (~2 llamadas a Claude por chunk)"
+  echo "  $MS/scripts/memctl.sh sync $repo --apply   # indexes (~2 Claude calls per chunk)"
 }
 
 panel() {
-  [ "${1:-}" = "--yes" ] || { echo "Levanta 2 contenedores (panel + proxy de Docker de solo lectura) en 127.0.0.1:45876 y un disparador launchd bajo demanda. Repite con --yes tras confirmar con el usuario."; exit 1; }
-  curl -s -m 4 http://127.0.0.1:45874/health | grep -q ready || { echo "El stack no responde: ejecuta antes 'seed.sh machine --yes'."; exit 1; }
+  [ "${1:-}" = "--yes" ] || { echo "Starts 2 containers (panel + read-only Docker proxy) on 127.0.0.1:45876 and an on-demand launchd trigger. Repeat with --yes after confirming with the user."; exit 1; }
+  curl -s -m 4 http://127.0.0.1:45874/health | grep -q ready || { echo "The stack is not responding: run 'seed.sh machine --yes' first."; exit 1; }
   if [ ! -f "$MM_DIR/compose.yaml" ]; then
-    [ -n "$MM_REPO_URL" ] || { echo "No encuentro el panel en $MM_DIR (el kit debe traer la carpeta panel/). Define MM_DIR o MM_REPO_URL."; exit 1; }
-    [ ! -e "$MM_DIR" ] || { echo "$MM_DIR existe y no es el panel: muevelo o define MM_DIR."; exit 1; }
-    echo "clonando Management Memory desde $MM_REPO_URL"; git clone --quiet "$MM_REPO_URL" "$MM_DIR"
+    [ -n "$MM_REPO_URL" ] || { echo "Cannot find the panel at $MM_DIR (the kit must include the panel/ folder). Set MM_DIR or MM_REPO_URL."; exit 1; }
+    [ ! -e "$MM_DIR" ] || { echo "$MM_DIR exists and is not the panel: move it or set MM_DIR."; exit 1; }
+    echo "cloning Management Memory from $MM_REPO_URL"; git clone --quiet "$MM_REPO_URL" "$MM_DIR"
   fi
-  [ "$(uname -s)" = Darwin ] && "$MS/scripts/host_stats_launchagent.sh" install >/dev/null 2>&1 && echo "disparador bajo demanda del Mac instalado (sin proceso residente)"
+  [ "$(uname -s)" = Darwin ] && "$MS/scripts/host_stats_launchagent.sh" install >/dev/null 2>&1 && echo "on-demand Mac trigger installed (no resident process)"
   python3 -I "$MS/scripts/usage_scan.py" >/dev/null 2>&1 || true
   (cd "$MM_DIR" && python3 scripts/setup.py && docker compose up -d --build)
   for _ in $(seq 1 15); do curl -s -o /dev/null -m 3 http://127.0.0.1:45876/api/overview && break; sleep 2; done
-  curl -s -o /dev/null -w "panel: HTTP %{http_code} en http://127.0.0.1:45876\n" http://127.0.0.1:45876/api/overview
+  curl -s -o /dev/null -w "panel: HTTP %{http_code} at http://127.0.0.1:45876\n" http://127.0.0.1:45876/api/overview
 }
 
 verify() {
   local repo="${1:-}"
-  echo "Aceptacion rapida (spec 21.5):"
+  echo "Quick acceptance (spec 21.5):"
   curl -s -m 4 http://127.0.0.1:45874/health | grep -q ready && ok "Cognee API ready" || miss "Cognee API"
   "$MS/scripts/observer.sh" probe 2>/dev/null | grep -q '"auth": *"ok"' && ok "observer auth ok" || miss "observer"
-  docker run --rm curlimages/curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $(cat ~/.cognee-plugin/observer/token 2>/dev/null)" http://host.docker.internal:8017/v1/models 2>/dev/null | grep -q 200 && ok "observer alcanzable desde un contenedor" || miss "observer no alcanzable desde Docker"
-  curl -s -m 4 -o /dev/null -w '%{http_code}' http://127.0.0.1:45876/api/overview 2>/dev/null | grep -q 200 && ok "panel Management Memory en :45876" || echo "  --     panel no levantado (opcional: seed.sh panel --yes)"
+  docker run --rm curlimages/curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $(cat ~/.cognee-plugin/observer/token 2>/dev/null)" http://host.docker.internal:8017/v1/models 2>/dev/null | grep -q 200 && ok "observer reachable from a container" || miss "observer not reachable from Docker"
+  curl -s -m 4 -o /dev/null -w '%{http_code}' http://127.0.0.1:45876/api/overview 2>/dev/null | grep -q 200 && ok "Management Memory panel on :45876" || echo "  --     panel not started (optional: seed.sh panel --yes)"
   if [ -n "$repo" ]; then
-    [ -f "$repo/.agent-memory/project.yaml" ] && ok "contrato .agent-memory/project.yaml (idioma: $(grep -E '^language:' "$repo/.agent-memory/project.yaml" | awk '{print $2}' | grep . || echo 'es, por defecto'))" || miss "falta .agent-memory/project.yaml"
-    local n; n=$(python3 -I "$MS/scripts/memory_brief.py" "$repo" | python3 -c 'import sys; print(len(sys.stdin.read()))')   # caracteres, no bytes (el tope cuenta caracteres)
-    [ "$n" -le 6000 ] && ok "briefing de $n caracteres (tope 6000)" || miss "briefing de $n caracteres (tope 6000)"
-    (cd "$repo" && claude mcp list 2>/dev/null | grep -i agents_cognee | grep -qi connected) && ok "MCP agents_cognee conectado" || miss "MCP agents_cognee no conectado"
+    [ -f "$repo/.agent-memory/project.yaml" ] && ok ".agent-memory/project.yaml contract (language: $(grep -E '^language:' "$repo/.agent-memory/project.yaml" | awk '{print $2}' | grep . || echo 'es, by default'))" || miss ".agent-memory/project.yaml is missing"
+    local n; n=$(python3 -I "$MS/scripts/memory_brief.py" "$repo" | python3 -c 'import sys; print(len(sys.stdin.read()))')   # characters, not bytes (the cap counts characters)
+    [ "$n" -le 6000 ] && ok "briefing of $n characters (cap 6000)" || miss "briefing of $n characters (cap 6000)"
+    (cd "$repo" && claude mcp list 2>/dev/null | grep -i agents_cognee | grep -qi connected) && ok "MCP agents_cognee connected" || miss "MCP agents_cognee not connected"
     "$MS/scripts/memctl.sh" status "$repo" 2>/dev/null | tail -6
   fi
   return $BAD

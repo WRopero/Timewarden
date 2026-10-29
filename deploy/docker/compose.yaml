@@ -1,10 +1,10 @@
 name: agents_memory_system
 
-# Memoria de proyecto con Cognee. Claude Code y el observer corren en el Mac;
-# aqui solo infraestructura. Ver docs/architecture.md.
+# Project memory with Cognee. Claude Code and the observer run on the Mac;
+# only infrastructure here. See docs/architecture.md.
 
 x-cognee-env: &cognee-env
-  # Relacional + vectores: una sola base, un esquema ds_<dataset_id> por dataset.
+  # Relational + vectors: a single database, one ds_<dataset_id> schema per dataset.
   DB_PROVIDER: postgres
   DB_HOST: agents_postgres
   DB_PORT: "5432"
@@ -12,15 +12,15 @@ x-cognee-env: &cognee-env
   DB_USERNAME: agents
   DB_PASSWORD: ${AGENTS_PG_PASSWORD:?run scripts/gen_env.sh}
   VECTOR_DB_PROVIDER: pgvector
-  # Con access control el motor vectorial exige credenciales propias, aunque
-  # apunten a la misma base que DB_*.
+  # With access control the vector engine requires its own credentials, even if
+  # they point to the same database as DB_*.
   VECTOR_DB_HOST: agents_postgres
   VECTOR_DB_PORT: "5432"
   VECTOR_DB_NAME: agents_memory
   VECTOR_DB_USERNAME: agents
   VECTOR_DB_PASSWORD: ${AGENTS_PG_PASSWORD:?}
   VECTOR_DATASET_DATABASE_HANDLER: pgvector_shared
-  # Grafo embebido (Ladybug) aislado por dataset. Requiere access control.
+  # Embedded graph (Ladybug) isolated per dataset. Requires access control.
   GRAPH_DATABASE_PROVIDER: ladybug
   GRAPH_DATASET_DATABASE_HANDLER: ladybug
   ENABLE_BACKEND_ACCESS_CONTROL: "true"
@@ -30,22 +30,22 @@ x-cognee-env: &cognee-env
   FASTAPI_USERS_JWT_SECRET: ${COGNEE_JWT_SECRET:?}
   FASTAPI_USERS_RESET_PASSWORD_TOKEN_SECRET: ${COGNEE_JWT_SECRET:?}
   FASTAPI_USERS_VERIFICATION_TOKEN_SECRET: ${COGNEE_JWT_SECRET:?}
-  # LLM = observer del plugin (claude -p) que corre en el Mac.
+  # LLM = the plugin's observer (claude -p) running on the Mac.
   LLM_PROVIDER: custom
   LLM_MODEL: openai/claude-observer
   LLM_ENDPOINT: http://host.docker.internal:8017/v1
   LLM_API_KEY: ${OBSERVER_TOKEN:?}
   LLM_INSTRUCTOR_MODE: json_schema_mode
-  # Embeddings locales (fastembed), bilingues ES/EN, contexto largo.
+  # Local embeddings (fastembed), bilingual ES/EN, long context.
   EMBEDDING_PROVIDER: fastembed
   EMBEDDING_MODEL: ${EMBEDDING_MODEL:-jinaai/jina-embeddings-v2-base-es}
   EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-768}
   FASTEMBED_CACHE_PATH: /models
   CACHING: "true"
-  # Ahorro de tokens: sin LLM extra por consulta ni pasada improve() tras cada escritura.
-  # Historia de sesiones: escribir un turno no usa LLM; sin TTL para no perderla a los 7 dias.
+  # Token savings: no extra LLM call per query and no improve() pass after every write.
+  # Session history: writing a turn uses no LLM; no TTL so it isn't lost after 7 days.
   SESSION_TTL_SECONDS: "0"
-  # Tope del improve() al cerrar cada sesion (lo dispara el plugin): 1 lote/ventana por corrida.
+  # Cap on improve() when each session closes (triggered by the plugin): 1 batch/window per run.
   IMPROVE_DISTILL_MAX_BATCHES_PER_RUN: "1"
   IMPROVE_TRACE_WINDOWS_PER_RUN: "1"
   AUTO_FEEDBACK: "false"
@@ -60,17 +60,17 @@ services:
       POSTGRES_USER: agents
       POSTGRES_PASSWORD: ${AGENTS_PG_PASSWORD:?}
       POSTGRES_DB: agents_memory
-    # Ajustes para un corpus pequeño en SSD (auditoria 2026-10-27); recargables, sin cambiar datos
+    # Tuning for a small corpus on SSD (audit 2026-10-27); reloadable, no data changes
     command:
       - postgres
       - -c
-      - jit=off                              # el JIT solo añade latencia a consultas cortas
+      - jit=off                              # JIT only adds latency to short queries
       - -c
       - random_page_cost=1.1                 # SSD
       - -c
-      - idle_in_transaction_session_timeout=60s   # libera conexiones colgadas en transaccion
+      - idle_in_transaction_session_timeout=60s   # frees connections stuck in a transaction
       - -c
-      - log_min_duration_statement=500ms     # deja rastro de consultas lentas
+      - log_min_duration_statement=500ms     # leaves a trace of slow queries
     volumes:
       - agents_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -118,14 +118,14 @@ services:
       TRANSPORT_MODE: http
       API_URL: http://agents_cognee_api:8000
       API_TOKEN: ${COGNEE_MCP_API_TOKEN:-}
-      # Las API keys autoalojadas se envian como X-Api-Key, no como Bearer.
+      # Self-hosted API keys are sent as X-Api-Key, not as Bearer.
       COGNEE_API_AUTH_SCHEME: x-api-key
     ports:
       - "127.0.0.1:45873:8000"
     networks: [agents_memory_net]
 
-  # El volumen nace root y el collector (uid 10001, imagen distroless) no podria
-  # escribir en el: un init de una sola ejecucion le asigna el dueño.
+  # The volume is created as root and the collector (uid 10001, distroless image) couldn't
+  # write to it: a one-shot init assigns it the owner.
   agents_telemetry_init:
     image: pgvector/pgvector:pg17
     user: "0:0"
@@ -153,13 +153,13 @@ services:
     profiles: [eval]
     build:
       context: ../../analytics
-    # Corre como root solo para leer otlp.json (modo 0600, dueño 10001).
+    # Runs as root only to read otlp.json (mode 0600, owner 10001).
     user: "0:0"
     volumes:
       - agents_telemetry_raw:/telemetry:ro
       - agents_analytics_data:/data
       - ../../analytics/out:/out
-      # Solo el archivo de eventos: el directorio contiene el token del observer.
+      # Only the events file: the directory contains the observer's token.
       - ${HOME}/.cognee-plugin/observer/observer-events.log:/observer/observer-events.log:ro
     networks: [agents_memory_net]
 

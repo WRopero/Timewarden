@@ -1,26 +1,26 @@
-# Seguridad y privacidad
+# Security and privacy
 
-## Qué sale de tu equipo
-| Dato | Destino | Cuándo |
+## What leaves your machine
+| Data | Destination | When |
 |---|---|---|
-| Fragmentos de tus documentos de memoria | Claude (tu suscripción), vía el observer | Solo al **indexar** y al leer texto recuperado en la conversación |
-| Nombres y versiones de paquetes | `api.osv.dev` | Auditoría de vulnerabilidades, máx. cada 24 h |
-| Nada más | — | Embeddings, búsqueda, grafo, base de datos y panel son 100 % locales |
+| Fragments of your memory documents | Claude (your subscription), via the observer | Only when **indexing** and when reading retrieved text in the conversation |
+| Package names and versions | `api.osv.dev` | Vulnerability audit, at most every 24 h |
+| Nothing else | — | Embeddings, search, graph, database, and dashboard are 100% local |
 
-## Superficie de red
-Todos los puertos se publican solo en `127.0.0.1` (45873–45876 y 8017). El panel añade validación de `Host` (anti DNS-rebinding), CSP estricta, `X-Frame-Options` y `no-store`, y no monta el socket de Docker: usa un proxy de solo lectura con lista blanca.
+## Network surface
+All ports are published only on `127.0.0.1` (45873–45876 and 8017). The dashboard adds `Host` validation (anti DNS-rebinding), a strict CSP, `X-Frame-Options`, and `no-store`, and it does not mount the Docker socket: it uses a read-only proxy with an allowlist.
 
-## Secretos
-- Los secretos del stack se generan por equipo (modo 0600) y no se versionan; el `.env` del panel también.
-- El rol de base de datos del panel (`mm_reader`) es de solo lectura, con límite de 15 s y una sola sentencia `SELECT/WITH/EXPLAIN/SHOW/VALUES/TABLE`.
-- Los perfiles excluyen de la indexación `.env*`, `profiles.yml`, llaves, cuentas de servicio y estado de Terraform.
-- Nunca guardes credenciales ni datos reales sensibles en los documentos de memoria.
+## Secrets
+- The stack's secrets are generated per machine (mode 0600) and are not versioned; the dashboard's `.env` isn't either.
+- The dashboard's database role (`mm_reader`) is read-only, with a 15 s limit and a single `SELECT/WITH/EXPLAIN/SHOW/VALUES/TABLE` statement.
+- Profiles exclude `.env*`, `profiles.yml`, keys, service accounts, and Terraform state from indexing.
+- Never store credentials or real sensitive data in the memory documents.
 
-## Prohibido (también para el agente)
-`docker compose down -v`, `forget` con `everything`, montar el directorio del observer en un contenedor, publicar puertos fuera de `127.0.0.1`, ejecutar contra producción sin aprobación.
+## Forbidden (also for the agent)
+`docker compose down -v`, `forget` with `everything`, mounting the observer's directory into a container, publishing ports outside `127.0.0.1`, running against production without approval.
 
-## Aislamiento entre proyectos
-Cada proyecto tiene su propio dataset (`<id>-knowledge`, `<id>-sessions`) y por defecto `cross_project_recall: false`.
+## Isolation between projects
+Each project has its own dataset (`<id>-knowledge`, `<id>-sessions`) and `cross_project_recall: false` by default.
 
-## Modelo de amenazas, en corto
-Es una herramienta local de un solo usuario: protege contra fugas accidentales (puertos, secretos en memoria, SQL destructivo desde el panel), no contra un atacante con acceso a tu cuenta del equipo.
+## Threat model, in short
+This is a local, single-user tool: it protects against accidental leaks (ports, secrets in memory, destructive SQL from the dashboard), not against an attacker with access to your machine account.

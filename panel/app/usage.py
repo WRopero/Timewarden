@@ -1,6 +1,6 @@
-"""Uso de la memoria: cuándo se consulta y cómo (eventos extraídos por `usage_scan.py` de los transcripts de Claude Code).
+"""Memory usage: when it is queried and how (events extracted by `usage_scan.py` from the Claude Code transcripts).
 
-Solo metadatos: query truncada, dataset, ok/error, latencia y tamaño del resultado. Solo lectura.
+Metadata only: truncated query, dataset, ok/error, latency and result size. Read-only.
 """
 import json
 import time

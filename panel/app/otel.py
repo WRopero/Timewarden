@@ -1,7 +1,7 @@
-"""Lectura de la telemetria OTLP (JSON por lineas) que escribe el OTel Collector.
+"""Reading of the OTLP telemetry (line-delimited JSON) written by the OTel Collector.
 
-Fuente autoritativa por llamada: eventos `api_request` (logs). Las metricas delta solo concilian.
-Los resultados se cachean hasta que cambian los archivos.
+Authoritative source per call: `api_request` events (logs). Delta metrics are only used for reconciliation.
+Results are cached until the files change.
 """
 from __future__ import annotations
 
@@ -72,7 +72,7 @@ def parse_lines(lines) -> dict:
             for sl in rl.get("scopeLogs", []):
                 for lr in sl.get("logRecords", []):
                     a = _attrs(lr.get("attributes"))
-                    name = a.get("event.name") or "(sin nombre)"
+                    name = a.get("event.name") or "(unnamed)"
                     events[name] += 1
                     if name != "api_request":
                         continue

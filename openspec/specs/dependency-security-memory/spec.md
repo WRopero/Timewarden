@@ -1,42 +1,42 @@
 # dependency-security-memory Specification
 
 ## Purpose
-Recordar qué versiones de dependencias hay, cuándo y por qué cambiaron, y vigilar vulnerabilidades de forma automática con pendientes visibles.
+Remember which dependency versions are in use, when and why they changed, and monitor vulnerabilities automatically with visible pending items.
 
 ## Requirements
 
-### Requirement: Inventario de versiones
-El sistema SHALL mantener, por proyecto, el inventario de las dependencias directas con la versión resuelta en los lockfiles (Poetry, npm, requirements fijados) y las versiones de runtime declaradas en Dockerfiles.
+### Requirement: Version inventory
+The system SHALL maintain, per project, the inventory of direct dependencies with the version resolved in the lockfiles (Poetry, npm, pinned requirements) and the runtime versions declared in Dockerfiles.
 
-#### Scenario: Lockfile sin cambios
-- **WHEN** se abre una sesión y los lockfiles no cambiaron
-- **THEN** el inventario no se modifica y no se escriben archivos
+#### Scenario: Lockfile unchanged
+- **WHEN** a session is opened and the lockfiles have not changed
+- **THEN** the inventory is not modified and no files are written
 
-### Requirement: Historial de cambios con motivo
-Cuando cambie una versión, el sistema SHALL registrar fecha, paquete, versión anterior y nueva, commit y motivo (`security` si el último commit del lockfile menciona un CVE, GHSA o vulnerabilidad; `upgrade` en otro caso) y MUST permitir anotar cambios manualmente.
+### Requirement: Change history with reason
+When a version changes, the system SHALL record the date, package, previous and new version, commit, and reason (`security` if the lockfile's last commit mentions a CVE, GHSA, or vulnerability; `upgrade` otherwise) and MUST allow changes to be annotated manually.
 
-#### Scenario: Corrección de seguridad
-- **WHEN** un commit sube `brotli` y su mensaje cita un CVE
-- **THEN** el historial marca el cambio como `security` y guarda el identificador
+#### Scenario: Security fix
+- **WHEN** a commit bumps `brotli` and its message cites a CVE
+- **THEN** the history marks the change as `security` and stores the identifier
 
-### Requirement: Auditoría automática de vulnerabilidades
-Al iniciar una sesión el sistema SHALL lanzar en segundo plano, como máximo una vez cada 24 horas, una auditoría contra una base pública de vulnerabilidades usando las versiones exactas de los lockfiles. El arranque MUST NOT esperar a la auditoría y, sin red, MUST fallar en silencio registrando el error.
+### Requirement: Automatic vulnerability audit
+When a session starts, the system SHALL launch in the background, at most once every 24 hours, an audit against a public vulnerability database using the exact versions from the lockfiles. Startup MUST NOT wait for the audit and, without network access, MUST fail silently while logging the error.
 
-#### Scenario: Auditoría reciente
-- **WHEN** la última auditoría tiene menos de 24 horas
-- **THEN** no se consulta la red
+#### Scenario: Recent audit
+- **WHEN** the last audit is less than 24 hours old
+- **THEN** the network is not queried
 
-#### Scenario: Sin red
-- **WHEN** no hay conexión
-- **THEN** la sesión inicia con normalidad y el briefing indica que el último intento falló
+#### Scenario: No network
+- **WHEN** there is no connection
+- **THEN** the session starts normally and the briefing indicates that the last attempt failed
 
-### Requirement: Pendientes de seguridad visibles
-El briefing de arranque SHALL mostrar el número de vulnerabilidades abiertas, cuántas son altas o críticas y las más graves con la versión que las corrige, y el sistema SHALL escribir la lista completa como casillas pendientes en un documento de memoria indexable. Se MUST poder aceptar un riesgo listando su identificador en un archivo de excepciones.
+### Requirement: Visible security pending items
+The startup briefing SHALL show the number of open vulnerabilities, how many are high or critical, and the most severe ones with the version that fixes them, and the system SHALL write the full list as pending checkboxes in an indexable memory document. It MUST be possible to accept a risk by listing its identifier in an exceptions file.
 
-#### Scenario: Vulnerabilidad crítica en una dependencia directa
-- **WHEN** la auditoría encuentra una vulnerabilidad crítica en un paquete directo
-- **THEN** aparece primera en el briefing con la versión corregida
+#### Scenario: Critical vulnerability in a direct dependency
+- **WHEN** the audit finds a critical vulnerability in a direct package
+- **THEN** it appears first in the briefing with the fixed version
 
-#### Scenario: Riesgo aceptado
-- **WHEN** un identificador está en el archivo de excepciones
-- **THEN** no se cuenta ni se lista
+#### Scenario: Accepted risk
+- **WHEN** an identifier is in the exceptions file
+- **THEN** it is neither counted nor listed

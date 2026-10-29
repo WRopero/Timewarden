@@ -1,4 +1,4 @@
-"""Que vectores se crean y donde: una tabla pgvector por (tipo, campo) dentro del esquema ds_<dataset>."""
+"""Which vectors are created and where: one pgvector table per (type, field) inside the ds_<dataset> schema."""
 from __future__ import annotations
 
 import re
@@ -8,13 +8,13 @@ from psycopg import sql
 from . import pg
 
 _TYPE_NOTES = {
-    "DocumentChunk_text": "Fragmentos del documento (lo que devuelve la búsqueda CHUNKS)",
-    "TextSummary_text": "Resumen de cada fragmento (1 llamada LLM por chunk)",
-    "TextDocument_name": "Nombre de cada documento",
-    "Entity_name": "Entidades extraídas por el LLM (grafo)",
-    "EntityType_name": "Tipos de entidad (grafo)",
-    "EdgeType_relationship_name": "Tipo de relación de cada arista (grafo): suele ser la colección más pesada",
-    "SessionQAVector_text": "Preguntas/respuestas de sesiones guardadas en el grafo",
+    "DocumentChunk_text": "Document chunks (what the CHUNKS search returns)",
+    "TextSummary_text": "Summary of each chunk (1 LLM call per chunk)",
+    "TextDocument_name": "Name of each document",
+    "Entity_name": "Entities extracted by the LLM (graph)",
+    "EntityType_name": "Entity types (graph)",
+    "EdgeType_relationship_name": "Relationship type of each edge (graph): usually the heaviest collection",
+    "SessionQAVector_text": "Questions/answers from sessions saved in the graph",
 }
 
 

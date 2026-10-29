@@ -1,80 +1,80 @@
-# SEED — runbook para que un agente instale la memoria de proyecto
+# SEED — runbook for an agent to install project memory
 
-Audiencia: un agente (Claude Code u otro) que debe instalar la memoria Cognee en **un equipo y un repositorio nuevos, sin conocer este sistema**. Sigue las fases en orden. Cada fase tiene un comando, un resultado esperado y qué hacer si falla. Detalle técnico: `spec/Cognee-memory-specification.md` §21. Todas las rutas son relativas a la carpeta del kit (`<KIT>`, la que contiene este archivo en `seed-bundle/`); no hay rutas fijas.
+Audience: an agent (Claude Code or other) that must install Cognee memory on **a new machine and a new repository, without knowing this system**. Follow the phases in order. Each phase has a command, an expected result, and what to do if it fails. Technical detail: `spec/Cognee-memory-specification.md` §21. All paths are relative to the kit folder (`<KIT>`, the one that contains this file in `seed-bundle/`); there are no fixed paths.
 
-## Reglas del agente
-1. **Pregunta antes de cambiar el sistema** (fases `machine`, plugin, panel, `index`): arrancan contenedores, tocan ajustes globales de Claude Code o gastan tokens.
-2. **Pregunta el idioma y el tipo de proyecto si no son obvios** (fases 2 y 2b). Nunca los adivines: el instalador sale con código 3 para que preguntes.
-3. No imprimas ni pegues secretos (`deploy/docker/.env`, `~/.cognee/.env`, token del observer, `profiles.yml`, cuentas de servicio).
-4. Prohibido: `docker compose down -v`, `forget` con `everything`, montar `~/.cognee-plugin/observer/`, publicar puertos fuera de `127.0.0.1`.
-5. Si algo falla, lee la tabla de troubleshooting (spec §21.7) antes de improvisar. Reporta lo que se probó y lo que **no** se probó.
-6. Solo está validado macOS + Docker Desktop. En Linux/Windows avisa al usuario antes de seguir y reporta cada diferencia.
+## Agent rules
+1. **Ask before changing the system** (the `machine`, plugin, panel and `index` phases): they start containers, touch Claude Code global settings or spend tokens.
+2. **Ask for the language and project type if they are not obvious** (phases 2 and 2b). Never guess them: the installer exits with code 3 so that you ask.
+3. Do not print or paste secrets (`deploy/docker/.env`, `~/.cognee/.env`, observer token, `profiles.yml`, service accounts).
+4. Forbidden: `docker compose down -v`, `forget` with `everything`, mounting `~/.cognee-plugin/observer/`, publishing ports outside `127.0.0.1`.
+5. If something fails, read the troubleshooting table (spec §21.7) before improvising. Report what was tested and what was **not** tested.
+6. Only macOS + Docker Desktop is validated. On Linux/Windows, warn the user before continuing and report every difference.
 
-## Cómo funciona (para explicárselo al usuario en 30 segundos)
-Todo corre **en el equipo del usuario**, en Docker: Cognee, PostgreSQL con pgvector, el MCP y el panel. Los **embeddings se calculan en local** (sin internet ni suscripción). La búsqueda es local y gratis. Lo único que sale a Claude es el texto que se **indexa** (resúmenes y conceptos, vía el *observer* con `claude -p`, gasta tokens de la suscripción) y el texto recuperado que Claude Code lee en la conversación. La auditoría de vulnerabilidades envía a `api.osv.dev` solo **nombres y versiones de paquetes**.
+## How it works (to explain to the user in 30 seconds)
+Everything runs **on the user's machine**, in Docker: Cognee, PostgreSQL with pgvector, the MCP and the panel. **Embeddings are computed locally** (no internet or subscription). Search is local and free. The only things that go out to Claude are the text that gets **indexed** (summaries and concepts, via the *observer* with `claude -p`, which spends subscription tokens) and the retrieved text that Claude Code reads in the conversation. The vulnerability audit sends only **package names and versions** to `api.osv.dev`.
 
-## Fase 0 — Entender el pedido
-Confirma con el usuario: (a) un repositorio o varios, (b) `project_id` estable (minúsculas, guiones; no la ruta), (c) datos que **no** deben entrar (clientes, bancarios, secretos), (d) ¿la captura de sesiones queda encendida (con topes) o apagada (`--no-capture`)? Por defecto: encendida con topes.
+## Phase 0 — Understand the request
+Confirm with the user: (a) one repository or several, (b) a stable `project_id` (lowercase, hyphens; not the path), (c) data that must **not** go in (customers, banking, secrets), (d) should session capture stay on (with caps) or off (`--no-capture`)? Default: on with caps.
 
-## Fase 1 — Requisitos
+## Phase 1 — Requirements
 ```bash
 cd <KIT> && seed-bundle/seed.sh doctor
 ```
-Esperado: Docker corriendo, `claude` ≥ 2.1.287 con sesión iniciada, python3, git, **OpenSpec** (CLI `openspec`; es parte de la instalación — si falta, propón al usuario instalarlo con `curl -fsSL https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/scripts/binary/install.sh | sh` tras enseñarle el script, o `npm i -g @fission-ai/openspec`), puertos 45873–45876 y 8017 libres (o ya usados por este stack). Si Docker no corre, pide abrirlo. El primer arranque descarga imágenes y ~640 MB del modelo de embeddings.
+Expected: Docker running, `claude` ≥ 2.1.287 with an active session, python3, git, **OpenSpec** (the `openspec` CLI; it is part of the installation — if it is missing, offer to install it for the user with `curl -fsSL https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/scripts/binary/install.sh | sh` after showing them the script, or `npm i -g @fission-ai/openspec`), ports 45873–45876 and 8017 free (or already used by this stack). If Docker is not running, ask for it to be opened. The first startup downloads images and ~640 MB of the embeddings model.
 
-## Fase 2 — Idioma del proyecto (pregunta obligatoria si es ambiguo)
+## Phase 2 — Project language (mandatory question if ambiguous)
 ```bash
 python3 -I scripts/detect_language.py <repo>     # LANG=es|en|unknown CONFIDENCE=0..1
 ```
-Exit 0 (confianza ≥ 0,75): informa y continúa. Exit 2 / `unknown`: **pregunta** «¿El proyecto está en español o en inglés?» y pasa `--lang es|en`. El idioma decide plantillas, sección de `CLAUDE.md`, briefing y documentos.
+Exit 0 (confidence ≥ 0.75): report it and continue. Exit 2 / `unknown`: **ask** "Is the project in Spanish or English?" and pass `--lang es|en`. The language decides templates, the `CLAUDE.md` section, the briefing and documents.
 
-## Fase 2b — Tipo de proyecto y perfil (pregunta obligatoria si es ambiguo)
+## Phase 2b — Project type and profile (mandatory question if ambiguous)
 ```bash
 python3 -I scripts/detect_project_type.py <repo>  # PROFILES=dbt,snowflake CONFIDENCE=.. EVIDENCE=.. [ASK=.. OPTIONS=a|b|c]
 ```
-Un perfil son 1–2 **capas**: `dbt`, `dataform`, `snowflake`, `bigquery`, `webapp`, `python-lib`, `generic` (p. ej. `dbt,snowflake`, `dbt,bigquery`, `dataform,bigquery`, `bigquery`). Exit 0: informa lo detectado y su evidencia. Exit 2 (ASK/OPTIONS): **pregunta al usuario** con esas opciones (casos típicos: dbt sin adaptador detectable; repo vacío; evidencias de dos warehouses) y pasa `--profile <capas>`. Cada capa aporta reglas al `CLAUDE.md` del proyecto, exclusiones de indexación (credenciales, llaves, estado de Terraform) y plantillas. Para proyectos de datos lee `docs/DATA_PROJECTS.md`.
+A profile is 1–2 **layers**: `dbt`, `dataform`, `snowflake`, `bigquery`, `webapp`, `python-lib`, `generic` (e.g. `dbt,snowflake`, `dbt,bigquery`, `dataform,bigquery`, `bigquery`). Exit 0: report what was detected and its evidence. Exit 2 (ASK/OPTIONS): **ask the user** with those options (typical cases: dbt with no detectable adapter; empty repo; evidence of two warehouses) and pass `--profile <layers>`. Each layer contributes rules to the project's `CLAUDE.md`, indexing exclusions (credentials, keys, Terraform state) and templates. For data projects read `docs/DATA_PROJECTS.md`.
 
-## Fase 3 — Máquina (una vez por equipo) — requiere aprobación
+## Phase 3 — Machine (once per machine) — requires approval
 ```bash
 seed-bundle/seed.sh machine --yes
 ```
-Arranca el observer, genera secretos (0600), levanta Postgres/API/MCP/collector, espera `/health` = `ready` (60–90 s o más la primera vez), crea las llaves del MCP y del plugin, crea `~/.cognee/.env` desde `config/plugin.example.env` si no existe (captura de sesiones encendida con topes) e instala el LaunchAgent del observer (macOS; reversible con `scripts/observer_launchagent.sh uninstall`; si el plugin aún no está instalado se reintenta tras la fase 4).
+Starts the observer, generates secrets (0600), brings up Postgres/API/MCP/collector, waits for `/health` = `ready` (60–90 s or more the first time), creates the MCP and plugin keys, creates `~/.cognee/.env` from `config/plugin.example.env` if it does not exist (session capture on with caps) and installs the observer LaunchAgent (macOS; reversible with `scripts/observer_launchagent.sh uninstall`; if the plugin is not yet installed it is retried after phase 4).
 
-## Fase 4 — Proyecto (una vez por repo) — idioma, perfil y plugin requieren aprobación
+## Phase 4 — Project (once per repo) — language, profile and plugin require approval
 ```bash
 seed-bundle/seed.sh project <repo> <project_id> --lang auto --profile auto [--no-capture] [--with-plugin]
 ```
-Crea `.agent-memory/project.yaml` (contrato con idioma, perfil y exclusiones), `.agent-memory/local.yaml` (ruta del kit en este equipo, **no versionado**), el esqueleto `docs/agent-memory/`, la sección de memoria en `CLAUDE.md` (reglas del perfil, regla de consultar la memoria ante ambigüedad, despliegues, seguridad y OpenSpec), hooks (briefing/checkpoint) en `.claude/settings.local.json`, skills `project-memory-*` y exclusiones locales de Git. **Código de salida 3** = idioma o perfil ambiguo → vuelve a las fases 2/2b y pregunta. Inicializa **OpenSpec** en el repo (`openspec/`, skills y comandos `/opsx:*`) salvo `--no-openspec`; el código de salida 4 con `--openspec yes` indica que falta el CLI. Sin `--with-plugin` imprime los tres comandos de `claude plugin`/`claude mcp` que modifican ajustes globales: ejecútalos solo con permiso, desde el repo.
+Creates `.agent-memory/project.yaml` (contract with language, profile and exclusions), `.agent-memory/local.yaml` (kit path on this machine, **not versioned**), the `docs/agent-memory/` skeleton, the memory section in `CLAUDE.md` (profile rules, the rule to consult memory when ambiguous, deployments, security and OpenSpec), hooks (briefing/checkpoint) in `.claude/settings.local.json`, `project-memory-*` skills and local Git exclusions. **Exit code 3** = ambiguous language or profile → go back to phases 2/2b and ask. It initializes **OpenSpec** in the repo (`openspec/`, skills and `/opsx:*` commands) unless `--no-openspec`; exit code 4 with `--openspec yes` indicates the CLI is missing. Without `--with-plugin` it prints the three `claude plugin`/`claude mcp` commands that modify global settings: run them only with permission, from the repo.
 
-## Fase 5 — Corpus piloto
-Usa la skill `project-memory-bootstrap` (ya instalada): lee la documentación real, redacta `project.md` y `architecture.md` en `draft` y propone 10–20 documentos (decisiones, implementaciones, reglas de negocio, runbooks **que no estén ya en `CLAUDE.md`**). Lista las lagunas en vez de rellenarlas; `status: verified` solo tras comprobar. Si el repo usa **OpenSpec**, sus specs y cambios ya están en las fuentes del contrato: no los copies a `docs/agent-memory/`.
+## Phase 5 — Pilot corpus
+Use the `project-memory-bootstrap` skill (already installed): read the real documentation, write `project.md` and `architecture.md` as `draft`, and propose 10–20 documents (decisions, implementations, business rules, runbooks **that are not already in `CLAUDE.md`**). List the gaps instead of filling them in; `status: verified` only after checking. If the repo uses **OpenSpec**, its specs and changes are already among the contract's sources: do not copy them into `docs/agent-memory/`.
 
-## Fase 6 — Indexar — requiere aprobación (gasta tokens)
+## Phase 6 — Index — requires approval (spends tokens)
 ```bash
-scripts/memctl.sh sync <repo>            # plan: qué cambiaría, 0 llamadas
-scripts/memctl.sh sync <repo> --apply    # ≈ 2 llamadas a Claude por chunk (15 docs ≈ 74 llamadas, 6 min)
+scripts/memctl.sh sync <repo>            # plan: what would change, 0 calls
+scripts/memctl.sh sync <repo> --apply    # ≈ 2 Claude calls per chunk (15 docs ≈ 74 calls, 6 min)
 ```
-Avisa del costo antes. Esperado: todos `indexed`.
+Warn about the cost beforehand. Expected: all `indexed`.
 
-## Fase 7 — Panel de control (Management Memory) — requiere aprobación
+## Phase 7 — Control panel (Management Memory) — requires approval
 ```bash
-seed-bundle/seed.sh panel --yes          # http://127.0.0.1:45876 — solo lectura
+seed-bundle/seed.sh panel --yes          # http://127.0.0.1:45876 — read-only
 ```
-Va **dentro del kit** (`panel/`): no clona nada. Instala (macOS) el disparador launchd bajo demanda para «Medir el equipo ahora» (sin proceso residente), refresca `view/usage.jsonl`, corre `panel/scripts/setup.py` (crea su `.env` 0600 y el rol Postgres de solo lectura; no imprime secretos) y hace `docker compose up -d --build` (2 contenedores). Muestra salud, vectores, grafo, PostgreSQL, tokens/costo, uso de la memoria, recursos y tamaño por proyecto. Parar: `docker compose stop` en `panel/` (nunca `down -v`). Para medir tokens de Claude Code, abre sesiones con `scripts/claude-memory <project_id>`.
+It lives **inside the kit** (`panel/`): it clones nothing. It installs (macOS) the on-demand launchd trigger for "Measure the machine now" (no resident process), refreshes `view/usage.jsonl`, runs `panel/scripts/setup.py` (creates its `.env` 0600 and the read-only Postgres role; does not print secrets) and does `docker compose up -d --build` (2 containers). It shows health, vectors, graph, PostgreSQL, tokens/cost, memory usage, resources and size per project. To stop: `docker compose stop` in `panel/` (never `down -v`). To measure Claude Code tokens, open sessions with `scripts/claude-memory <project_id>`.
 
-## Fase 8 — Verificar y entregar
+## Phase 8 — Verify and deliver
 ```bash
 seed-bundle/seed.sh verify <repo>
-scripts/memctl.sh eval <repo>            # con evals/cases.<project_id>.jsonl (20 preguntas; ver evals/cases.example.jsonl)
+scripts/memctl.sh eval <repo>            # with evals/cases.<project_id>.jsonl (20 questions; see evals/cases.example.jsonl)
 ```
-Aceptación: API ready, observer alcanzable desde contenedor, panel en :45876, MCP conectado, briefing < 6000 caracteres, recuperación correcta en top-5. Cierra con la skill `project-memory-handoff`, commit de `docs/agent-memory/`, `.agent-memory/` (salvo `local.yaml`) y `CLAUDE.md` por el flujo normal del repo, y entrega: qué se instaló, dónde, qué costó (tokens), cómo desconectar (`claude plugin disable cognee-memory@cognee`, `claude mcp remove agents_cognee`) y la fecha de revisión de consumo (una semana: `scripts/weekly_report.py`).
+Acceptance: API ready, observer reachable from the container, panel on :45876, MCP connected, briefing < 6000 characters, correct retrieval in top-5. Close with the `project-memory-handoff` skill, commit `docs/agent-memory/`, `.agent-memory/` (except `local.yaml`) and `CLAUDE.md` through the repo's normal flow, and deliver: what was installed, where, what it cost (tokens), how to disconnect (`claude plugin disable cognee-memory@cognee`, `claude mcp remove agents_cognee`) and the consumption review date (one week: `scripts/weekly_report.py`).
 
-## Qué recuerda el sistema una vez instalado (verifícalo en la primera sesión)
-- **Briefing al abrir sesión:** objetivo, decisiones, reglas, pendientes, despliegues, seguridad, cambios activos de OpenSpec, checkpoint de la rama actual y último handoff.
-- **Despliegues** (`scripts/memory_deploy.py record <repo> <entorno> --commit <sha>`): qué commit está desplegado por entorno y el estado de cada rama. Se registra **solo tras verificar**. En proyectos de datos "desplegado" = el job/release de producción terminó bien sobre ese commit.
-- **Versiones y seguridad** (`memory_deps.py`, `memory_audit.py`): inventario de dependencias directas con historial (`security` si el commit cita un CVE/GHSA), auditoría OSV lanzada sola al abrir sesión (máx. cada 24 h, en segundo plano, sin red falla en silencio) y pendientes en `docs/agent-memory/security/dependencias.md`. Aceptar un riesgo: `.agent-memory/security-ignore.txt`. Registrar a mano un cambio previo: `memory_deps.py note <repo> --pkg X --reason security --cve CVE-... --date AAAA-MM-DD`.
-- **OpenSpec dirige toda implementación o cambio** (regla obligatoria en `CLAUDE.md`): `/opsx:propose` → revisión del usuario → `/opsx:apply` → `/opsx:archive`; sin cambio activo no se escribe código de producto (excepciones: erratas, formato, hotfix urgente documentado después). Sus specs (vigentes) y cambios (activos y archivados) se indexan con `memctl.sh sync` y el briefing lista los activos.
-- **Ante ambigüedad el agente consulta la memoria antes de decidir o preguntar** (regla en `CLAUDE.md`).
+## What the system remembers once installed (verify it in the first session)
+- **Briefing on session open:** goal, decisions, rules, pending items, deployments, security, active OpenSpec changes, current branch checkpoint and last handoff.
+- **Deployments** (`scripts/memory_deploy.py record <repo> <environment> --commit <sha>`): which commit is deployed per environment and the state of each branch. Recorded **only after verifying**. In data projects, "deployed" = the production job/release finished successfully on that commit.
+- **Versions and security** (`memory_deps.py`, `memory_audit.py`): inventory of direct dependencies with history (`security` if the commit cites a CVE/GHSA), OSV audit launched automatically on session open (at most every 24 h, in the background, fails silently without network) and pending items in `docs/agent-memory/security/dependencies.md`. To accept a risk: `.agent-memory/security-ignore.txt`. To manually record a prior change: `memory_deps.py note <repo> --pkg X --reason security --cve CVE-... --date AAAA-MM-DD`.
+- **OpenSpec drives every implementation or change** (mandatory rule in `CLAUDE.md`): `/opsx:propose` → user review → `/opsx:apply` → `/opsx:archive`; without an active change, no product code is written (exceptions: typos, formatting, urgent hotfix documented afterwards). Its specs (current) and changes (active and archived) are indexed with `memctl.sh sync` and the briefing lists the active ones.
+- **When facing ambiguity the agent consults memory before deciding or asking** (rule in `CLAUDE.md`).
 
-## Desinstalar un proyecto
-Desconecta plugin y MCP (arriba), borra `.agent-memory/`, `docs/agent-memory/` (si el usuario quiere), la sección de `CLAUDE.md` y los hooks de `.claude/settings.local.json`. Los datos de Cognee de ese proyecto se eliminan con `forget` **del dataset concreto** (nunca `everything`).
+## Uninstall a project
+Disconnect the plugin and MCP (above), delete `.agent-memory/`, `docs/agent-memory/` (if the user wants), the `CLAUDE.md` section and the hooks in `.claude/settings.local.json`. That project's Cognee data is removed with `forget` **on the specific dataset** (never `everything`).

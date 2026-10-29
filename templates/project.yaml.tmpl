@@ -1,13 +1,13 @@
 schema_version: 1
 project_id: __PROJECT_ID__
-language: __LANG__                # es | en: idioma de los documentos de memoria, briefing y plantillas
-stale_ignore: [CLAUDE.md, AGENTS.md]   # fuentes que no marcan un documento como obsoleto por si solas
+language: __LANG__                # es | en: language of the memory documents, briefing, and templates
+stale_ignore: [CLAUDE.md, AGENTS.md]   # sources that don't mark a document as stale on their own
 memory_dataset: __PROJECT_ID__-knowledge
 session_dataset: __PROJECT_ID__-sessions
 sources:
   - docs/agent-memory/**/*.md
-  - openspec/specs/**/*.md          # specs vigentes de OpenSpec (si el repo los usa)
-  - openspec/changes/**/*.md        # propuestas activas y archivadas
+  - openspec/specs/**/*.md          # current OpenSpec specs (if the repo uses them)
+  - openspec/changes/**/*.md        # active and archived proposals
 exclude:
   - '**/.env*'
   - '**/credentials/**'
@@ -15,6 +15,6 @@ exclude:
   - 'docs/agent-memory/handoffs/_local/**'
 policy:
   cross_project_recall: false
-  capture_raw_sessions: true      # true = captura de sesiones encendida con topes (ver spec 20.1); false = apagada
+  capture_raw_sessions: true      # true = session capture on with caps (see spec 20.1); false = off
   max_recall_results: 5
   context_token_budget: 1500

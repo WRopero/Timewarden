@@ -1,4 +1,4 @@
-/* Management Memory — sistema de diseño: neutro, mucho aire, un solo acento. */
+/* Management Memory — design system: neutral, lots of whitespace, a single accent. */
 :root{
   --bg:#f5f6f8;--surface:#ffffff;--surface-2:#f0f2f5;--text:#101828;--muted:#667085;--line:#e4e7ec;
   --brand:#0e7c86;--brand-soft:#e3f3f4;--accent:#c2650c;--ok:#12805c;--ok-soft:#e3f5ee;--warn:#b45309;--warn-soft:#fdf1dc;--bad:#c2321f;--bad-soft:#fde8e4;--info-soft:#eaf1fb;
@@ -63,7 +63,7 @@ button{cursor:pointer;background:var(--brand);color:#fff;border-color:var(--bran
 textarea{width:100%;font-family:var(--mono);font-size:13px;min-height:96px}input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--brand);outline-offset:1px}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.spacer{flex:1}
 code,pre{background:var(--surface-2);border-radius:7px;font-family:var(--mono);font-size:12.5px}code{padding:1px 6px}pre{padding:12px;overflow:auto;max-height:340px;margin:8px 0 0}
-/* gráficos */
+/* charts */
 .bars{display:flex;align-items:flex-end;gap:4px;height:120px;margin-top:10px}.bars div{flex:1;background:var(--brand);border-radius:4px 4px 0 0;min-height:3px;position:relative;opacity:.9}.bars div:hover{opacity:1}
 .bars div:hover::after{content:attr(data-t);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:3px 8px;border-radius:6px;font-size:11.5px;white-space:nowrap;z-index:4}
 .axis{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-top:4px}

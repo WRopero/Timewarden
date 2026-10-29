@@ -1,26 +1,26 @@
-# Cómo funciona
+# How it works
 
-Los grafos son Mermaid: GitHub los dibuja directamente. Colores: **verde** = no gasta tokens de Claude; **naranja** = sí.
+The graphs are Mermaid: GitHub renders them directly. Colors: **green** = does not spend Claude tokens; **orange** = does.
 
-## 1. Idea general
+## 1. Overview
 ```mermaid
 flowchart LR
-  subgraph REPO["Tu repositorio"]
-    MD["docs/agent-memory<br/>Markdown en Git"]
-    OS["openspec/<br/>specs y cambios"]
-    CTR[".agent-memory/<br/>contrato, despliegues, dependencias"]
+  subgraph REPO["Your repository"]
+    MD["docs/agent-memory<br/>Markdown in Git"]
+    OS["openspec/<br/>specs and changes"]
+    CTR[".agent-memory/<br/>contract, deployments, dependencies"]
   end
-  subgraph LOCAL["Tu equipo, solo 127.0.0.1"]
-    HOOKS["Hooks de Claude Code<br/>briefing y checkpoint"]
+  subgraph LOCAL["Your machine, 127.0.0.1 only"]
+    HOOKS["Claude Code hooks<br/>briefing and checkpoint"]
     DK["Docker: Cognee, Postgres + pgvector, MCP"]
     OBS["Observer<br/>claude -p"]
-    PANEL["Panel Management Memory"]
+    PANEL["Management Memory panel"]
   end
   CC["Claude Code"]
-  MD -->|"sync incremental"| DK
-  OS -->|"sync incremental"| DK
-  DK -->|"resumir al indexar"| OBS
-  HOOKS -->|"lee Markdown y Git"| CC
+  MD -->|"incremental sync"| DK
+  OS -->|"incremental sync"| DK
+  DK -->|"summarize on index"| OBS
+  HOOKS -->|"reads Markdown and Git"| CC
   CC -->|"MCP recall"| DK
   DK --> PANEL
   classDef free fill:#E3F1E4,stroke:#3C7A45,color:#1F2A1F
@@ -28,114 +28,114 @@ flowchart LR
   class HOOKS,CC,PANEL,MD,OS,CTR,DK free
   class OBS paid
 ```
-**Principio:** el Markdown en Git es la fuente de verdad; Cognee es un índice derivado (se puede reconstruir). Consultar es gratis; indexar cuesta.
+**Principle:** the Markdown in Git is the source of truth; Cognee is a derived index (it can be rebuilt). Querying is free; indexing costs.
 
-## 2. Instalación guiada por un agente
+## 2. Agent-guided installation
 ```mermaid
 flowchart TD
-  A["Pegas AGENT_PROMPT.md a un agente"] --> B["seed.sh doctor<br/>requisitos y OpenSpec"]
-  B --> C{"Idioma claro?"}
-  C -->|"no, exit 3"| C2["El agente te pregunta es o en"] --> D
-  C -->|"si"| D{"Tipo de proyecto claro?"}
-  D -->|"no, exit 3"| D2["El agente te pregunta<br/>dbt, Dataform, Snowflake, BigQuery..."] --> E
-  D -->|"si"| E["seed.sh machine<br/>Docker, observer, llaves"]
-  E --> F["seed.sh project<br/>contrato, CLAUDE.md, hooks, skills, OpenSpec"]
-  F --> G["Corpus piloto<br/>skill project-memory-bootstrap"]
-  G --> H["memctl sync --apply<br/>indexa, gasta tokens, pide aprobación"]
-  H --> I["seed.sh panel y verify"]
+  A["You paste AGENT_PROMPT.md to an agent"] --> B["seed.sh doctor<br/>requirements and OpenSpec"]
+  B --> C{"Language clear?"}
+  C -->|"no, exit 3"| C2["The agent asks you es or en"] --> D
+  C -->|"yes"| D{"Project type clear?"}
+  D -->|"no, exit 3"| D2["The agent asks you<br/>dbt, Dataform, Snowflake, BigQuery..."] --> E
+  D -->|"yes"| E["seed.sh machine<br/>Docker, observer, keys"]
+  E --> F["seed.sh project<br/>contract, CLAUDE.md, hooks, skills, OpenSpec"]
+  F --> G["Pilot corpus<br/>skill project-memory-bootstrap"]
+  G --> H["memctl sync --apply<br/>indexes, spends tokens, asks for approval"]
+  H --> I["seed.sh panel and verify"]
 ```
 
-## 3. Ciclo de una sesión
+## 3. Lifecycle of a session
 ```mermaid
 sequenceDiagram
-  participant U as Tú
+  participant U as You
   participant CC as Claude Code
   participant H as Hooks
-  participant M as Memoria Cognee
-  U->>CC: abres sesión en el repo
+  participant M as Cognee Memory
+  U->>CC: you open a session in the repo
   CC->>H: SessionStart
-  H->>H: briefing (Markdown + Git) y registra cambios de versiones
-  H-->>CC: briefing inyectado, sin consultar Cognee
-  H->>H: lanza auditoría OSV en segundo plano si pasaron 24 h
-  U->>CC: pides algo ambiguo
-  CC->>M: recall CHUNKS top_k 3, antes de decidir o preguntar
-  M-->>CC: fragmentos con ruta y estado
-  CC->>CC: verifica frescura con memory_stale, sin tokens
-  U->>CC: cierras o compactas
-  CC->>H: SessionEnd o PreCompact
+  H->>H: briefing (Markdown + Git) and logs version changes
+  H-->>CC: briefing injected, without querying Cognee
+  H->>H: launches OSV audit in the background if 24 h have passed
+  U->>CC: you ask for something ambiguous
+  CC->>M: recall CHUNKS top_k 3, before deciding or asking
+  M-->>CC: fragments with path and status
+  CC->>CC: verifies freshness with memory_stale, no tokens
+  U->>CC: you close or compact
+  CC->>H: SessionEnd or PreCompact
   H->>H: checkpoint auto-rama.md
 ```
 
-## 4. Qué lleva el briefing
+## 4. What the briefing contains
 ```mermaid
 flowchart LR
-  P["project.md<br/>objetivo"] --> B["Briefing<br/>máx. 6000 caracteres"]
-  D["decisions/<br/>vigentes"] --> B
-  R["business/<br/>reglas"] --> B
-  T["pendientes abiertos"] --> B
-  DP["Despliegues<br/>por entorno y rama"] --> B
-  S["Seguridad<br/>vulnerabilidades abiertas"] --> B
-  O["OpenSpec<br/>cambios activos"] --> B
-  C["Checkpoint de la<br/>rama actual"] --> B
-  HR["Último handoff real"] --> B
-  ST["Notas obsoletas"] --> B
+  P["project.md<br/>goal"] --> B["Briefing<br/>max. 6000 characters"]
+  D["decisions/<br/>current"] --> B
+  R["business/<br/>rules"] --> B
+  T["open to-dos"] --> B
+  DP["Deployments<br/>by environment and branch"] --> B
+  S["Security<br/>open vulnerabilities"] --> B
+  O["OpenSpec<br/>active changes"] --> B
+  C["Checkpoint of the<br/>current branch"] --> B
+  HR["Last real handoff"] --> B
+  ST["Stale notes"] --> B
 ```
-El tope recorta el cuerpo, nunca el pie con las instrucciones de uso.
+The cap trims the body, never the footer with the usage instructions.
 
-## 5. Auditoría de seguridad automática
+## 5. Automatic security audit
 ```mermaid
 flowchart TD
-  S["SessionStart"] --> SN["memory_deps snapshot<br/>lee lockfiles"]
-  SN --> CH{"Cambió alguna versión?"}
-  CH -->|"sí"| LOG["Registra en dependencies.json<br/>motivo: security si el commit cita CVE o GHSA, si no upgrade"]
+  S["SessionStart"] --> SN["memory_deps snapshot<br/>reads lockfiles"]
+  SN --> CH{"Did any version change?"}
+  CH -->|"yes"| LOG["Logs in dependencies.json<br/>reason: security if the commit cites CVE or GHSA, otherwise upgrade"]
   CH -->|"no"| AGE
-  LOG --> AGE{"Última auditoría con más de 24 h?"}
+  LOG --> AGE{"Last audit more than 24 h ago?"}
   AGE -->|"no"| SHOW
-  AGE -->|"sí"| BG["memory_audit run<br/>proceso desacoplado, no bloquea"]
-  BG --> OSV["api.osv.dev<br/>solo nombre y versión"]
-  OSV --> RES["Resultado fuera del repo"]
-  RES --> DOC["docs/agent-memory/security/dependencias.md<br/>casillas pendientes"]
-  RES --> SHOW["Briefing: abiertas, altas y críticas,<br/>versión que corrige"]
-  OSV -.->|"sin red"| FAIL["Falla en silencio y lo anota"]
+  AGE -->|"yes"| BG["memory_audit run<br/>detached process, non-blocking"]
+  BG --> OSV["api.osv.dev<br/>name and version only"]
+  OSV --> RES["Result outside the repo"]
+  RES --> DOC["docs/agent-memory/security/dependencies.md<br/>pending checkboxes"]
+  RES --> SHOW["Briefing: open, high and critical,<br/>fixing version"]
+  OSV -.->|"no network"| FAIL["Fails silently and notes it"]
 ```
 
-## 6. Despliegues y ramas
+## 6. Deployments and branches
 ```mermaid
 flowchart TD
-  X["Despliegas a un entorno"] --> V{"Salud verificada?"}
-  V -->|"no"| NO["No se registra nada"]
-  V -->|"sí"| REC["memory_deploy record<br/>entorno, commit, nota"]
-  REC --> ST["En el próximo briefing"]
-  ST --> Q1["Commits de la rama principal<br/>sin desplegar"]
-  ST --> Q2{"Rama actual"}
-  Q2 -->|"integrada en la principal"| Q3["Desplegada si es ancestro<br/>de lo desplegado"]
-  Q2 -->|"no integrada"| Q4["Marcada NO desplegada<br/>con sus commits propios"]
+  X["You deploy to an environment"] --> V{"Health verified?"}
+  V -->|"no"| NO["Nothing is recorded"]
+  V -->|"yes"| REC["memory_deploy record<br/>environment, commit, note"]
+  REC --> ST["In the next briefing"]
+  ST --> Q1["Commits on the main branch<br/>not yet deployed"]
+  ST --> Q2{"Current branch"}
+  Q2 -->|"merged into main"| Q3["Deployed if it is an ancestor<br/>of what was deployed"]
+  Q2 -->|"not merged"| Q4["Marked NOT deployed<br/>with its own commits"]
 ```
-En proyectos de datos «desplegado» significa que el job/release de producción terminó bien sobre ese commit.
+In data projects, "deployed" means the production job/release finished successfully on that commit.
 
-## 7. OpenSpec dirige los cambios
+## 7. OpenSpec drives the changes
 ```mermaid
 flowchart LR
-  I["Idea o petición"] --> M{"Ambigua?"}
-  M -->|"sí"| REC["Consulta memoria<br/>y specs vigentes"]
+  I["Idea or request"] --> M{"Ambiguous?"}
+  M -->|"yes"| REC["Consult memory<br/>and current specs"]
   M -->|"no"| P
   REC --> P["/opsx:propose<br/>proposal, specs, design, tasks"]
-  P --> RV["Revisión del usuario"]
-  RV --> AP["/opsx:apply<br/>implementa las tareas"]
-  AP --> AR["/opsx:archive<br/>los specs vigentes se actualizan"]
-  AR --> SY["memctl sync<br/>los specs entran a la memoria"]
+  P --> RV["User review"]
+  RV --> AP["/opsx:apply<br/>implements the tasks"]
+  AP --> AR["/opsx:archive<br/>current specs are updated"]
+  AR --> SY["memctl sync<br/>specs enter the memory"]
 ```
-Excepciones sin cambio: erratas, formato, comentarios y hotfix urgente (se documenta después con un cambio).
+Exceptions with no change: typos, formatting, comments, and urgent hotfix (documented afterward with a change).
 
-## 8. Detección del tipo de proyecto
+## 8. Project type detection
 ```mermaid
 flowchart TD
-  R["Repositorio"] --> E["Busca evidencias<br/>dbt_project.yml, workflow_settings.yaml, .sqlx,<br/>Terraform google_bigquery, package.json, manage.py..."]
-  E --> L{"Capas detectadas"}
-  L -->|"una combinación clara"| OK["dbt+snowflake, dbt+bigquery,<br/>dataform+bigquery, bigquery, webapp..."]
-  L -->|"dbt sin adaptador, dos warehouses,<br/>repo vacío"| ASK["Salida 2: el agente pregunta<br/>con las opciones"]
-  ASK --> FORCE["--profile capas"]
-  OK --> APPLY["Reglas en CLAUDE.md y exclusiones de indexación"]
+  R["Repository"] --> E["Looks for evidence<br/>dbt_project.yml, workflow_settings.yaml, .sqlx,<br/>Terraform google_bigquery, package.json, manage.py..."]
+  E --> L{"Detected layers"}
+  L -->|"one clear combination"| OK["dbt+snowflake, dbt+bigquery,<br/>dataform+bigquery, bigquery, webapp..."]
+  L -->|"dbt without adapter, two warehouses,<br/>empty repo"| ASK["Exit 2: the agent asks<br/>with the options"]
+  ASK --> FORCE["--profile layers"]
+  OK --> APPLY["Rules in CLAUDE.md and indexing exclusions"]
   FORCE --> APPLY
 ```
-Para los diagramas de arquitectura detallados (escritura, lectura, continuidad, historia) ver [`diagrams.md`](diagrams.md).
+For the detailed architecture diagrams (write, read, continuity, history) see [`diagrams.md`](diagrams.md).

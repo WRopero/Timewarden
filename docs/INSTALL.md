@@ -1,80 +1,80 @@
-# Cómo instalar Timewarden
+# How to Install Timewarden
 
-Hay dos caminos: **con un agente** (recomendado: él detecta el idioma y el tipo de proyecto y te pregunta lo ambiguo) o **a mano**. En ambos casos la instalación tiene dos niveles: **una vez por equipo** (el stack) y **una vez por repositorio** (el contrato, los hooks, las skills y OpenSpec).
+There are two paths: **with an agent** (recommended: it detects the language and project type and asks you about anything ambiguous) or **by hand**. In both cases the installation has two levels: **once per machine** (the stack) and **once per repository** (the contract, the hooks, the skills, and OpenSpec).
 
-## 0. Requisitos
-| Necesitas | Cómo comprobarlo |
+## 0. Requirements
+| You need | How to check |
 |---|---|
-| macOS con Docker Desktop abierto (única plataforma validada) | `docker info` |
-| Claude Code ≥ 2.1.287 con sesión iniciada | `claude --version` |
-| Python 3 y git | `python3 --version`, `git --version` |
-| OpenSpec (CLI) | `openspec --version`. Si falta: `curl -fsSL https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/scripts/binary/install.sh \| sh` (revisa el script antes de ejecutarlo) o `npm i -g @fission-ai/openspec` |
-| ~10 GB libres y internet la primera vez | Imágenes Docker y modelo de embeddings (~640 MB) |
-`seed-bundle/seed.sh doctor` comprueba todo esto y no cambia nada.
+| macOS with Docker Desktop open (the only validated platform) | `docker info` |
+| Claude Code ≥ 2.1.287, signed in | `claude --version` |
+| Python 3 and git | `python3 --version`, `git --version` |
+| OpenSpec (CLI) | `openspec --version`. If missing: `curl -fsSL https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/scripts/binary/install.sh \| sh` (review the script before running it) or `npm i -g @fission-ai/openspec` |
+| ~10 GB free and internet access the first time | Docker images and the embeddings model (~640 MB) |
+`seed-bundle/seed.sh doctor` checks all of this and changes nothing.
 
-## 1. Obtener el kit
+## 1. Get the kit
 ```bash
-git clone https://github.com/<tu-usuario>/Timewarden.git      # o descomprime el .zip del release
+git clone https://github.com/<your-username>/Timewarden.git      # or unzip the release .zip
 cd Timewarden
 ```
-Puede vivir en **cualquier carpeta**: las rutas se resuelven desde su ubicación y cada repo guarda la suya en `.agent-memory/local.yaml` (no versionado).
+It can live in **any folder**: paths are resolved from its location, and each repo stores its own in `.agent-memory/local.yaml` (not versioned).
 
-## 2. Camino A — con un agente (recomendado)
-Abre Claude Code y pega el bloque de [`seed-bundle/AGENT_PROMPT.md`](../seed-bundle/AGENT_PROMPT.md) cambiando `<KIT>`, `<repo>` y `<project_id>`. El agente sigue [`seed-bundle/SEED.md`](../seed-bundle/SEED.md): pregunta antes de arrancar contenedores, instalar el plugin, levantar el panel o indexar, y **te pregunta el idioma y el tipo de proyecto si no son obvios**.
+## 2. Path A — with an agent (recommended)
+Open Claude Code and paste the block from [`seed-bundle/AGENT_PROMPT.md`](../seed-bundle/AGENT_PROMPT.md), replacing `<KIT>`, `<repo>`, and `<project_id>`. The agent follows [`seed-bundle/SEED.md`](../seed-bundle/SEED.md): it asks before starting containers, installing the plugin, bringing up the panel, or indexing, and **it asks you for the language and project type if they are not obvious**.
 
-## 3. Camino B — a mano
+## 3. Path B — by hand
 ```bash
-# 3.1 Una vez por equipo
-seed-bundle/seed.sh doctor                    # requisitos
-seed-bundle/seed.sh machine --yes             # observer + Docker + llaves + ~/.cognee/.env + LaunchAgent del observer
+# 3.1 Once per machine
+seed-bundle/seed.sh doctor                    # requirements
+seed-bundle/seed.sh machine --yes             # observer + Docker + keys + ~/.cognee/.env + observer LaunchAgent
 
-# 3.2 Una vez por repositorio
-seed-bundle/seed.sh project /ruta/al/repo mi-proyecto --lang auto --profile auto --with-plugin
-#   --lang auto      detecta es/en; si es ambiguo sale con código 3 -> usa --lang es|en
-#   --profile auto   detecta el tipo (dbt, dataform, snowflake, bigquery, webapp...); ambiguo -> código 3 -> usa --profile dbt,snowflake
-#   --no-openspec    omite OpenSpec (no recomendado: es parte del método)
-#   --no-capture     no captura sesiones (solo briefing y recuperación)
-#   --with-plugin    instala el plugin y el MCP en el ámbito del repo (si no, imprime los comandos)
+# 3.2 Once per repository
+seed-bundle/seed.sh project /path/to/repo my-project --lang auto --profile auto --with-plugin
+#   --lang auto      detects es/en; if ambiguous it exits with code 3 -> use --lang es|en
+#   --profile auto   detects the type (dbt, dataform, snowflake, bigquery, webapp...); ambiguous -> code 3 -> use --profile dbt,snowflake
+#   --no-openspec    skips OpenSpec (not recommended: it is part of the method)
+#   --no-capture     does not capture sessions (briefing and recall only)
+#   --with-plugin    installs the plugin and the MCP at the repo scope (otherwise it prints the commands)
 
-# 3.3 Corpus inicial: en Claude Code, dentro del repo, pide usar la skill project-memory-bootstrap
-#     (lee la documentación real y propone 10-20 documentos; revisa y marca verified solo lo comprobado)
+# 3.3 Initial corpus: in Claude Code, inside the repo, ask it to use the project-memory-bootstrap skill
+#     (it reads the real documentation and proposes 10-20 documents; review them and mark verified only what you have checked)
 
-# 3.4 Indexar (gasta tokens de tu suscripción: ~2 llamadas por fragmento)
-scripts/memctl.sh sync /ruta/al/repo              # plan: 0 llamadas
-scripts/memctl.sh sync /ruta/al/repo --apply
+# 3.4 Index (spends tokens from your subscription: ~2 calls per chunk)
+scripts/memctl.sh sync /path/to/repo              # plan: 0 calls
+scripts/memctl.sh sync /path/to/repo --apply
 
-# 3.5 Panel y verificación
+# 3.5 Panel and verification
 seed-bundle/seed.sh panel --yes                   # http://127.0.0.1:45876
-seed-bundle/seed.sh verify /ruta/al/repo
+seed-bundle/seed.sh verify /path/to/repo
 ```
 
-### Códigos de salida que debes conocer
-| Código | Significado | Qué hacer |
+### Exit codes you should know
+| Code | Meaning | What to do |
 |---|---|---|
-| 3 | Idioma o tipo de proyecto ambiguo | Responder la pregunta y repetir con `--lang` / `--profile` |
-| 4 | Falta el CLI `openspec` con `--openspec yes` | Instalar OpenSpec |
-| ≠ 0 en `doctor` | Falta un requisito | Leer la línea `FALTA` |
+| 3 | Ambiguous language or project type | Answer the question and repeat with `--lang` / `--profile` |
+| 4 | The `openspec` CLI is missing with `--openspec yes` | Install OpenSpec |
+| ≠ 0 in `doctor` | A requirement is missing | Read the `MISSING` line |
 
-## 4. Qué debes ver al terminar
-- `seed.sh verify` en verde: API lista, observer autenticado y alcanzable desde un contenedor, panel en :45876, contrato del proyecto, briefing ≤ 6000 caracteres, MCP `agents_cognee` conectado.
-- Al abrir una sesión nueva en el repo, el briefing aparece solo (objetivo, decisiones, despliegues, seguridad, cambios de OpenSpec, checkpoint de la rama).
-- `scripts/memctl.sh eval <repo>` con 20 preguntas (ver [`evals/README.md`](../evals/README.md)): objetivo ≥ 85 % de recall@5.
+## 4. What you should see when finished
+- `seed.sh verify` all green: API ready, observer authenticated and reachable from a container, panel on :45876, project contract, briefing ≤ 6000 characters, MCP `agents_cognee` connected.
+- When you open a new session in the repo, the briefing appears on its own (goal, decisions, deployments, security, OpenSpec changes, branch checkpoint).
+- `scripts/memctl.sh eval <repo>` with 20 questions (see [`evals/README.md`](../evals/README.md)): goal ≥ 85% recall@5.
 
-## 5. Más proyectos, otro equipo, actualizar, desinstalar
-- **Otro repositorio:** repite solo el paso 3.2 (y 3.3–3.5) con otro `project_id`. El stack se comparte.
-- **Otro equipo (otra PC):** clona o descomprime el kit allí y repite todo. **Los datos de la memoria no viajan:** viven en Docker en cada equipo. Lo que se comparte entre personas es el Markdown versionado en el repo (`docs/agent-memory/`, `openspec/`, `.agent-memory/`); cada quien ejecuta `memctl.sh sync <repo> --apply` y reconstruye su índice.
-- **Actualizar el kit:** `git pull` (o el nuevo `.zip`) y `seed.sh verify`. Las versiones de las imágenes están fijadas en `config/versions.lock`; cambiar el modelo de embeddings obliga a reindexar.
-- **Parar / pausar:** `scripts/memctl.sh stop` (nunca `docker compose down -v`); capturar menos: `COGNEE_CAPTURE=false` en `~/.cognee/.env`.
-- **Desconectar un repo:** `claude plugin disable cognee-memory@cognee` y `claude mcp remove agents_cognee`; borra `.agent-memory/`, la sección de `CLAUDE.md` y los hooks de `.claude/settings.local.json`.
+## 5. More projects, another machine, updating, uninstalling
+- **Another repository:** repeat only step 3.2 (and 3.3–3.5) with a different `project_id`. The stack is shared.
+- **Another machine (another PC):** clone or unzip the kit there and repeat everything. **The memory data does not travel:** it lives in Docker on each machine. What is shared between people is the versioned Markdown in the repo (`docs/agent-memory/`, `openspec/`, `.agent-memory/`); each person runs `memctl.sh sync <repo> --apply` and rebuilds their index.
+- **Updating the kit:** `git pull` (or the new `.zip`) and `seed.sh verify`. Image versions are pinned in `config/versions.lock`; changing the embeddings model forces a reindex.
+- **Stop / pause:** `scripts/memctl.sh stop` (never `docker compose down -v`); to capture less: `COGNEE_CAPTURE=false` in `~/.cognee/.env`.
+- **Disconnect a repo:** `claude plugin disable cognee-memory@cognee` and `claude mcp remove agents_cognee`; delete `.agent-memory/`, the section in `CLAUDE.md`, and the hooks in `.claude/settings.local.json`.
 
-## 6. Problemas frecuentes
-| Síntoma | Causa probable | Arreglo |
+## 6. Common problems
+| Symptom | Likely cause | Fix |
 |---|---|---|
-| `doctor`: Docker no corre | Docker Desktop cerrado | Abrirlo |
-| La API no llega a `ready` | Primera descarga del modelo (60–90 s o más) | Esperar; `docker logs agents_cognee_api` |
-| `observer no alcanzable desde Docker` | Observer caído o token | `scripts/observer.sh start` y `probe` |
-| Tras reiniciar el equipo nada responde | Observer sin LaunchAgent | `scripts/observer_launchagent.sh install` |
-| `recall` devuelve 404 | Nombre de dataset incorrecto | Copiar `memory_dataset` literal de `project.yaml` (string, no lista) |
-| El agente no ve el briefing | Hooks no instalados o proyecto sin `.agent-memory/project.yaml` | Rehacer el paso 3.2 y abrir una sesión nueva |
-| Puerto en uso | Otro servicio en 45873–45876 / 8017 | Liberarlo; el kit solo publica en `127.0.0.1` |
-La tabla completa de resolución de problemas está en [`seed-bundle/spec/Cognee-memory-specification.md`](../seed-bundle/spec/Cognee-memory-specification.md) §21.7.
+| `doctor`: Docker is not running | Docker Desktop is closed | Open it |
+| The API never reaches `ready` | First model download (60–90 s or more) | Wait; `docker logs agents_cognee_api` |
+| `observer not reachable from Docker` | Observer is down, or token issue | `scripts/observer.sh start` and `probe` |
+| After restarting the machine nothing responds | Observer has no LaunchAgent | `scripts/observer_launchagent.sh install` |
+| `recall` returns 404 | Incorrect dataset name | Copy `memory_dataset` literally from `project.yaml` (string, not list) |
+| The agent does not see the briefing | Hooks not installed, or project without `.agent-memory/project.yaml` | Redo step 3.2 and open a new session |
+| Port in use | Another service on 45873–45876 / 8017 | Free it; the kit only publishes on `127.0.0.1` |
+The full troubleshooting table is in [`seed-bundle/spec/Cognee-memory-specification.md`](../seed-bundle/spec/Cognee-memory-specification.md) §21.7.

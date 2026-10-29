@@ -1,4 +1,4 @@
-"""Bases de conocimiento por proyecto: tamaño, costo de reingesta y candidatos a compactar o eliminar."""
+"""Project knowledge bases: size, re-ingestion cost, and candidates to compact or delete."""
 from __future__ import annotations
 
 import collections
@@ -12,16 +12,16 @@ _AVG_TOKENS_PER_CALL_FALLBACK = 4000
 
 
 def classify(name: str) -> tuple[str, str]:
-    """(proyecto, tipo) a partir del nombre del dataset: <proyecto>-knowledge | <proyecto>_sessions | codebase-<repo>-<hash>.
-    El proyecto se normaliza (guion bajo = guion) para agrupar datasets con separadores distintos."""
+    """(project, type) from the dataset name: <project>-knowledge | <project>_sessions | codebase-<repo>-<hash>.
+    The project is normalized (underscore = hyphen) to group datasets with different separators."""
     norm = lambda x: x.replace("_", "-").lower()  # noqa: E731
     if name.endswith("-knowledge"):
-        return norm(name[: -len("-knowledge")]), "conocimiento"
+        return norm(name[: -len("-knowledge")]), "knowledge"
     if name.endswith("_sessions") or name.endswith("-sessions"):
-        return norm(name[: -len("_sessions")]), "sesiones"
+        return norm(name[: -len("_sessions")]), "sessions"
     m = re.match(r"codebase-(.+)-[0-9a-f]{6,}$", name)
     if m:
-        return norm(m.group(1)), "código"
+        return norm(m.group(1)), "code"
     return norm(name), "otro"
 
 
@@ -81,35 +81,35 @@ def dataset_report(ds: dict, graph_files: dict, summaries: dict, avg_tokens: int
 
 def _flags(name, kind, docs, reg, cols, registry_rows, project) -> list[dict]:
     out = []
-    if not docs and kind != "sesiones":
-        out.append({"level": "info", "code": "vacio", "text": "Dataset sin documentos: candidato a eliminar."})
-    if kind == "código" and not docs:
-        out.append({"level": "info", "code": "codigo_vacio", "text": "Dataset de código creado por el plugin y vacío (la indexación de código está apagada)."})
-    if kind == "sesiones":
-        out.append({"level": "info", "code": "sesiones", "text": f"Historia de sesiones: {len(docs)} elementos. Cada cierre de sesión cuesta ~3 llamadas; revisar si compensa."})
+    if not docs and kind != "sessions":
+        out.append({"level": "info", "code": "empty", "text": "Dataset with no documents: candidate for deletion."})
+    if kind == "code" and not docs:
+        out.append({"level": "info", "code": "empty_code", "text": "Code dataset created by the plugin and empty (code indexing is turned off)."})
+    if kind == "sessions":
+        out.append({"level": "info", "code": "sessions", "text": f"Session history: {len(docs)} items. Each session close costs ~3 calls; check whether it's worth it."})
     mine = [r for r in registry_rows if r["project"] == project]
     bad = [r for r in mine if r["status"] != "indexed"]
-    if bad and kind == "conocimiento":
-        out.append({"level": "warn", "code": "no_indexados", "text": f"{len(bad)} documento(s) del registro no están 'indexed' (reintentar con sync)."})
+    if bad and kind == "knowledge":
+        out.append({"level": "warn", "code": "not_indexed", "text": f"{len(bad)} registry document(s) are not 'indexed' (retry with sync)."})
     ids = {d["id"] for d in docs}
     missing = [r for r in mine if r.get("data_id") and r["data_id"] not in ids]
-    if missing and kind == "conocimiento":
-        out.append({"level": "warn", "code": "faltan_en_cognee", "text": f"{len(missing)} documento(s) del registro no existen en Cognee."})
+    if missing and kind == "knowledge":
+        out.append({"level": "warn", "code": "missing_in_cognee", "text": f"{len(missing)} registry document(s) do not exist in Cognee."})
     orphans = [d for d in docs if d["id"] not in reg]
-    if orphans and kind == "conocimiento":
-        out.append({"level": "warn", "code": "huerfanos", "text": f"{len(orphans)} documento(s) en Cognee sin entrada en el registro (¿cargados a mano?)."})
+    if orphans and kind == "knowledge":
+        out.append({"level": "warn", "code": "orphans", "text": f"{len(orphans)} document(s) in Cognee with no registry entry (loaded by hand?)."})
     vb = sum(c["bytes_total"] for c in cols)
     edge = next((c for c in cols if c["table"] == "EdgeType_relationship_name"), None)
     if edge and vb and edge["bytes_total"] / vb > 0.4:
-        out.append({"level": "tip", "code": "aristas_dominan", "text": f"Los vectores de tipos de relación pesan {round(100 * edge['bytes_total'] / vb)}% de los vectores (cada conexión del grafo genera su propio vector con una frase descriptiva): es la primera candidata si hay que compactar."})
+        out.append({"level": "tip", "code": "edges_dominate", "text": f"Relationship-type vectors account for {round(100 * edge['bytes_total'] / vb)}% of the vectors (each graph connection generates its own vector with a descriptive phrase): they are the first candidate if you need to compact."})
     chunk_counts = [d["chunks"] for d in docs if d["chunks"]]
     if len(chunk_counts) >= 4:
         med = statistics.median(chunk_counts)
         heavy = [d for d in docs if d["chunks"] > max(2 * med, 4)]
         if heavy:
-            out.append({"level": "tip", "code": "docs_pesados", "text": f"{len(heavy)} documento(s) con >2× la mediana de chunks (cada chunk ≈ 2 llamadas a Claude): " + ", ".join((d['path'] or d['name'] or '?').split('/')[-1] for d in heavy[:4])})
+            out.append({"level": "tip", "code": "heavy_docs", "text": f"{len(heavy)} document(s) with >2× the median chunk count (each chunk ≈ 2 Claude calls): " + ", ".join((d['path'] or d['name'] or '?').split('/')[-1] for d in heavy[:4])})
     if not any(c["has_ann_index"] for c in cols) and cols:
-        out.append({"level": "info", "code": "sin_ann", "text": "Sin índice ANN (HNSW/IVFFlat): búsqueda exacta; con corpus pequeños es lo correcto, se vuelve lento a decenas de miles de filas."})
+        out.append({"level": "info", "code": "no_ann", "text": "No ANN index (HNSW/IVFFlat): exact search; with small corpora that's the right choice, but it becomes slow at tens of thousands of rows."})
     return out
 
 
@@ -128,7 +128,7 @@ def overview() -> dict:
         p["datasets"].append({"id": r["id"], "name": r["name"], "kind": r["kind"]})
         for k in ("documents", "chunks", "footprint_bytes", "est_reingest_tokens", "vector_rows"):
             p[k] += r[k] or 0
-    for r in reports:  # el detalle pesado se pide por dataset
+    for r in reports:  # the heavy detail is requested per dataset
         r.pop("docs"), r.pop("collections")
     return {"projects": list(projects.values()), "datasets": reports, "storage": storage.totals(), "avg_tokens_per_call": avg,
             "pg": pg.overview()}

@@ -1,10 +1,10 @@
 # Versiones fijadas y probadas juntas (2026-10-26). No actualizar automaticamente.
-# Cambiar embedder => regenerar indice (nunca mezclar vectores de modelos distintos).
+# Changing the embedder => rebuild the index (never mix vectors from different models).
 cognee_image        = cognee/cognee:1.6.5@sha256:29427e968f8b273db0bb7b037a7bb119d7695d960f73a59d649f00c5111a85bd
 cognee_mcp_image    = cognee/cognee-mcp:main-37f788b@sha256:dcc1ac6941bd662d74283ec4aa133fd3f0183f53dc064032e44bae61b84ecc26
 postgres_image      = pgvector/pgvector:pg17@sha256:ac08538c6f8b9904c33c8224c5e5706dbe760aca29db1d096972b4052c22a75d
 otel_collector      = otel/opentelemetry-collector-contrib:0.111.0@sha256:a2a52e43c1a80aa94120ad78c2db68780eb90e6d11c8db5b3ce2f6a0cc6b5029
-cognee_python_pkg   = 1.6.5            # el plugin tambien fija cognee==1.6.5
+cognee_python_pkg   = 1.6.5            # the plugin also pins cognee==1.6.5
 claude_plugin       = cognee-memory@cognee 1.7.4 (marketplace commit e3addddcd0d95bd0b81881953ab851b6eb618051)
 claude_code         = 2.1.311   # probado 2026-10-29 (instalado con 2.1.310)
 docker_desktop      = engine 27.5.1 / compose v2.32.4-desktop.1 (VM 8 GB, 8 CPU)

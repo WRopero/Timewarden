@@ -1,38 +1,38 @@
-# Dependencias
+# Dependencies
 
-## En tu equipo (lo que debes tener)
-| Herramienta | Versión probada | Para qué |
+## On your machine (what you need to have)
+| Tool | Tested version | Purpose |
 |---|---|---|
-| macOS + Docker Desktop | Docker Engine 27.5.1, Compose 2.32.4, VM de 8 GB y 8 CPU | Ejecuta el stack. **Única plataforma validada**; en Linux/Windows el instalador avisa y no se garantiza |
-| Claude Code | 2.1.311 (mínimo 2.1.287) con sesión iniciada | Agente, hooks, skills y MCP; el observer usa tu suscripción |
-| Python 3 | 3.12 | Todos los scripts (solo librería estándar) |
-| git | cualquiera reciente | Estado de ramas, frescura, despliegues |
-| [OpenSpec](https://github.com/Fission-AI/OpenSpec) | 1.15.0 | Dirige cada cambio; forma parte de la instalación |
-| Internet (primera vez) | — | Imágenes Docker, modelo de embeddings (~640 MB), plugin del marketplace de Cognee |
+| macOS + Docker Desktop | Docker Engine 27.5.1, Compose 2.32.4, 8 GB VM and 8 CPUs | Runs the stack. **Only validated platform**; on Linux/Windows the installer warns and nothing is guaranteed |
+| Claude Code | 2.1.311 (minimum 2.1.287) with an active login | Agent, hooks, skills and MCP; the observer uses your subscription |
+| Python 3 | 3.12 | All scripts (standard library only) |
+| git | any recent version | Branch state, freshness, deployments |
+| [OpenSpec](https://github.com/Fission-AI/OpenSpec) | 1.15.0 | Drives every change; part of the installation |
+| Internet (first time) | — | Docker images, embeddings model (~640 MB), Cognee marketplace plugin |
 
-## Imágenes y componentes (fijados en `config/versions.lock`)
-| Componente | Versión | Para qué |
+## Images and components (pinned in `config/versions.lock`)
+| Component | Version | Purpose |
 |---|---|---|
-| Cognee (API) | 1.6.5 | Ingesta, grafo de conocimiento, búsqueda |
-| Cognee MCP | `main-37f788b` | Expone `recall` a Claude Code |
-| PostgreSQL + pgvector | pg17 / pgvector 0.8.x | Vectores y metadatos |
-| OpenTelemetry Collector | 0.111.0 | Telemetría de Claude Code (tokens) |
-| Plugin `cognee-memory` | 1.7.4 | Hooks de captura y skills de Cognee dentro de Claude Code |
-| Embeddings | `jinaai/jina-embeddings-v2-base-es` (768 dim, fastembed 0.8.0) | Búsqueda semántica bilingüe **en local**, sin internet ni costo |
-| DuckDB (analytics, opcional) | 1.1.3 | Normaliza telemetría y uso bajo demanda |
-| Panel: FastAPI / uvicorn / psycopg / httpx | 0.115.6 / 0.32.1 / 3.2.3 / 0.27.2 | Tablero de solo lectura |
-| `wollomatic/socket-proxy` | 1.11.0 | Proxy de solo lectura al motor de Docker para el panel |
-| Cytoscape.js | 3.30.2 | Dibuja el grafo en el panel (se descarga al construir la imagen) |
+| Cognee (API) | 1.6.5 | Ingestion, knowledge graph, search |
+| Cognee MCP | `main-37f788b` | Exposes `recall` to Claude Code |
+| PostgreSQL + pgvector | pg17 / pgvector 0.8.x | Vectors and metadata |
+| OpenTelemetry Collector | 0.111.0 | Claude Code telemetry (tokens) |
+| `cognee-memory` plugin | 1.7.4 | Cognee capture hooks and skills inside Claude Code |
+| Embeddings | `jinaai/jina-embeddings-v2-base-es` (768 dim, fastembed 0.8.0) | Bilingual semantic search **locally**, with no internet or cost |
+| DuckDB (analytics, optional) | 1.1.3 | Normalizes telemetry and usage on demand |
+| Dashboard: FastAPI / uvicorn / psycopg / httpx | 0.115.6 / 0.32.1 / 3.2.3 / 0.27.2 | Read-only dashboard |
+| `wollomatic/socket-proxy` | 1.11.0 | Read-only proxy to the Docker engine for the dashboard |
+| Cytoscape.js | 3.30.2 | Draws the graph in the dashboard (downloaded when the image is built) |
 
-Cambiar el modelo de embeddings obliga a reindexar todo: nunca se mezclan vectores de modelos distintos.
+Changing the embeddings model forces a full reindex: vectors from different models are never mixed.
 
-## Servicios externos
-| Servicio | Cuándo | Qué sale de tu equipo |
+## External services
+| Service | When | What leaves your machine |
 |---|---|---|
-| Claude (tu suscripción) | Al **indexar** (resumir y extraer conceptos) y cuando lees texto recuperado en la conversación | Fragmentos de tus documentos de memoria |
-| `api.osv.dev` | Auditoría de vulnerabilidades, máx. cada 24 h | Solo nombre y versión de paquetes |
-| Marketplace de Cognee (GitHub) | Instalar el plugin | Nada |
-| Registros de imágenes y CDN de Cytoscape | Primera construcción | Nada |
+| Claude (your subscription) | When **indexing** (summarizing and extracting concepts) and when you read retrieved text in the conversation | Fragments of your memory documents |
+| `api.osv.dev` | Vulnerability audit, at most every 24 h | Only package names and versions |
+| Cognee marketplace (GitHub) | Installing the plugin | Nothing |
+| Image registries and Cytoscape CDN | First build | Nothing |
 
-## Dependencias de los proyectos que vigila
-Lee lockfiles y manifiestos: `poetry.lock`, `package-lock.json`, `requirements*.txt` fijados con `==`, `packages.yml` de dbt, `Dockerfile` (versiones de Node/Python). La auditoría OSV cubre PyPI y npm; los paquetes de dbt Hub se inventarían pero OSV no los cubre.
+## Dependencies of the projects it monitors
+It reads lockfiles and manifests: `poetry.lock`, `package-lock.json`, `requirements*.txt` pinned with `==`, dbt's `packages.yml`, `Dockerfile` (Node/Python versions). The OSV audit covers PyPI and npm; dbt Hub packages are inventoried but OSV does not cover them.

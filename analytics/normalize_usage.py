@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Normaliza telemetria OTLP (Claude Code) + eventos del observer a DuckDB y reporta.
+"""Normalizes OTLP telemetry (Claude Code) + observer events into DuckDB and reports on them.
 
-Fuentes (una autoritativa por llamada, sin sumar duplicados):
-  - Claude Code: logs `claude_code.api_request` (un registro por llamada, con categorias).
-  - Observer:    observer-events.log (tokens totales; categorias desconocidas = NULL, no 0).
-Las metricas `claude_code.token.usage` (delta) solo se usan para conciliar totales.
-Idempotente: la clave primaria es el hash del evento.
+Sources (one authoritative per call, no summing of duplicates):
+  - Claude Code: `claude_code.api_request` logs (one record per call, with categories).
+  - Observer:    observer-events.log (total tokens; unknown categories = NULL, not 0).
+The `claude_code.token.usage` metrics (delta) are only used to reconcile totals.
+Idempotent: the primary key is the event hash.
 
-Uso: normalize_usage.py [--telemetry DIR] [--observer FILE] [--db FILE] report [--project ID]
+Usage: normalize_usage.py [--telemetry DIR] [--observer FILE] [--db FILE] report [--project ID]
 """
 import argparse, glob, hashlib, json, os, sys
 import duckdb
@@ -105,47 +105,47 @@ def load_observer(con, path, project_id):
 def report(con, project):
     w = "WHERE project_id = ?" if project else ""
     p = [project] if project else []
-    print("\n== Consumo por proyecto / run / variante / actor ==")
-    q = f"""SELECT coalesce(project_id,'(sin proyecto)') proyecto, coalesce(run_id,'-') run, coalesce(variant,'-') var, actor,
-        count(*) llamadas, sum(input_tokens) in_tok, sum(output_tokens) out_tok, sum(cache_read_tokens) cache_r,
-        sum(cache_creation_tokens) cache_w, sum(total_tokens) total, round(sum(cost_usd),5) costo_usd,
+    print("\n== Usage by project / run / variant / actor ==")
+    q = f"""SELECT coalesce(project_id,'(no project)') project, coalesce(run_id,'-') run, coalesce(variant,'-') var, actor,
+        count(*) calls, sum(input_tokens) in_tok, sum(output_tokens) out_tok, sum(cache_read_tokens) cache_r,
+        sum(cache_creation_tokens) cache_w, sum(total_tokens) total, round(sum(cost_usd),5) cost_usd,
         round(quantile_cont(duration_ms,0.5)) p50_ms
         FROM calls {w} GROUP BY ALL ORDER BY 1,2,4"""
-    print(con.execute(q, p).fetch_df().to_string(index=False) if con.execute(f"SELECT count(*) FROM calls {w}", p).fetchone()[0] else "(sin datos)")
-    print("\n== Cobertura ==")
-    print(con.execute(f"""SELECT count(*) llamadas,
-        count(*) FILTER (WHERE total_tokens IS NULL) sin_conteo,
-        count(*) FILTER (WHERE project_id IS NULL) sin_proyecto,
-        count(*) FILTER (WHERE input_tokens IS NULL AND total_tokens IS NOT NULL) categorias_desconocidas
+    print(con.execute(q, p).fetch_df().to_string(index=False) if con.execute(f"SELECT count(*) FROM calls {w}", p).fetchone()[0] else "(no data)")
+    print("\n== Coverage ==")
+    print(con.execute(f"""SELECT count(*) calls,
+        count(*) FILTER (WHERE total_tokens IS NULL) no_count,
+        count(*) FILTER (WHERE project_id IS NULL) no_project,
+        count(*) FILTER (WHERE input_tokens IS NULL AND total_tokens IS NOT NULL) unknown_categories
         FROM calls {w}""", p).fetch_df().to_string(index=False))
-    print("\n== Conciliacion logs (autoritativos) vs metricas delta ==")
+    print("\n== Reconciliation: logs (authoritative) vs delta metrics ==")
     q = f"""WITH l AS (
           SELECT run_id, 'input' kind, sum(input_tokens) v FROM calls {w + (' AND ' if w else 'WHERE ')}source='otel_log' GROUP BY 1
           UNION ALL SELECT run_id,'output',sum(output_tokens) FROM calls {w + (' AND ' if w else 'WHERE ')}source='otel_log' GROUP BY 1
           UNION ALL SELECT run_id,'cacheRead',sum(cache_read_tokens) FROM calls {w + (' AND ' if w else 'WHERE ')}source='otel_log' GROUP BY 1
           UNION ALL SELECT run_id,'cacheCreation',sum(cache_creation_tokens) FROM calls {w + (' AND ' if w else 'WHERE ')}source='otel_log' GROUP BY 1),
         m AS (SELECT run_id, kind, sum(value) v FROM metric_totals {w} GROUP BY 1,2)
-        SELECT l.run_id, l.kind, l.v logs, m.v metricas,
-               round(100.0*(coalesce(m.v,0)-l.v)/nullif(l.v,0),1) dif_pct
+        SELECT l.run_id, l.kind, l.v logs, m.v metrics,
+               round(100.0*(coalesce(m.v,0)-l.v)/nullif(l.v,0),1) diff_pct
         FROM l LEFT JOIN m USING (run_id, kind) ORDER BY 1,2"""
     print(con.execute(q, p * 4 + p).fetch_df().to_string(index=False))
-    print("(dif_pct negativo = las metricas subcuentan: la ultima ventana de exportacion no se vacia al cerrar la sesion)")
+    print("(negative diff_pct = the metrics undercount: the last export window is not flushed when the session closes)")
 
 
 def compare(con, project):
-    """Promedio POR CORRIDA (A y B pueden tener distinto numero de corridas).
-    Ahorro relativo = 1 - B/A, solo si ambas variantes tienen corridas."""
+    """Average PER RUN (A and B may have a different number of runs).
+    Relative savings = 1 - B/A, only if both variants have runs."""
     rows = con.execute("""SELECT variant, count(*) runs, avg(tok) tok, avg(costo) costo FROM (
         SELECT variant, run_id, sum(total_tokens) tok, sum(cost_usd) costo FROM calls
         WHERE project_id=? AND variant IN ('A','B') AND source='otel_log' GROUP BY 1,2) GROUP BY 1""", [project]).fetchall()
     d = {r[0]: r for r in rows}
     if "A" not in d or "B" not in d:
-        print("\n== A/B: faltan variantes (necesita A y B) =="); return
+        print("\n== A/B: missing variants (needs A and B) =="); return
     a, b = d["A"], d["B"]
-    print(f"\n== A/B proyecto {project} (promedio por corrida, solo agente principal) ==")
-    print(f"A: corridas={a[1]} tokens={a[2]:.0f} costo=${a[3]:.4f}   B: corridas={b[1]} tokens={b[2]:.0f} costo=${b[3]:.4f}")
-    print(f"Costo B/A = {b[3]/a[3]:.1f}x   Ahorro relativo (tokens) = {1 - b[2]/a[2]:.1%}")
-    print("PRELIMINAR: muestra minima. Falta amortizar la ingesta (observer) y medir calidad/exito; un ahorro negativo es un resultado valido.")
+    print(f"\n== A/B project {project} (average per run, main agent only) ==")
+    print(f"A: runs={a[1]} tokens={a[2]:.0f} cost=${a[3]:.4f}   B: runs={b[1]} tokens={b[2]:.0f} cost=${b[3]:.4f}")
+    print(f"Cost B/A = {b[3]/a[3]:.1f}x   Relative savings (tokens) = {1 - b[2]/a[2]:.1%}")
+    print("PRELIMINARY: minimal sample. Ingestion (observer) still needs to be amortized and quality/success measured; a negative savings is a valid result.")
 
 
 def main():
@@ -164,7 +164,7 @@ def main():
     files = sorted(glob.glob(os.path.join(a.telemetry, "otlp*.json")))
     nc, nm = load_otlp(con, files)
     no = load_observer(con, a.observer, a.observer_project)
-    print(f"leidos: {len(files)} archivos OTLP -> {nc} llamadas api_request, {nm} puntos de metrica; observer: {no} completions")
+    print(f"read: {len(files)} OTLP files -> {nc} api_request calls, {nm} metric points; observer: {no} completions")
     report(con, a.project)
     if a.project:
         compare(con, a.project)

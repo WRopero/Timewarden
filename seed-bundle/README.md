@@ -1,30 +1,30 @@
-# Kit de memoria de proyecto (Cognee en Docker + Claude Code)
+# Project Memory Kit (Cognee in Docker + Claude Code)
 
-Instala una memoria persistente y verificable para agentes de código en cualquier repositorio: briefing automático al abrir sesión, recuperación local (embeddings en Docker, sin costo por consulta), checkpoint por rama, registro de despliegues, versiones/seguridad con auditoría automática, indexación de specs de OpenSpec y un panel de control de solo lectura. Incluye **perfiles para proyectos de datos** (dbt + Snowflake, Dataform + BigQuery, BigQuery/Terraform) y de aplicaciones web.
+Installs persistent, verifiable memory for coding agents in any repository: automatic briefing when a session opens, local retrieval (embeddings in Docker, no per-query cost), per-branch checkpoint, deployment log, versions/security with automatic audit, indexing of OpenSpec specs, and a read-only control panel. It includes **profiles for data projects** (dbt + Snowflake, Dataform + BigQuery, BigQuery/Terraform) and for web applications.
 
-| Contenido | Para qué |
+| Contents | Purpose |
 |---|---|
-| `AGENT_PROMPT.md` | El mensaje que le pegas a un agente para instalar todo |
-| `SEED.md` | Runbook por fases: comando, resultado esperado, cuándo preguntar |
-| `../docs/DATA_PROJECTS.md` | Qué cambia en proyectos de datos (BigQuery, Dataform, Snowflake, dbt) |
-| `../docs/INSTALL.md` | Instalación paso a paso para personas |
-| `seed.sh` | Orquestador: `doctor`, `machine`, `project`, `panel`, `verify` |
-| `manifest.yaml` | Versiones probadas, puertos, fases, prohibiciones (legible por máquina) |
-| `spec/` | Especificación técnica completa: diseño, replicación (§21), problemas frecuentes |
+| `AGENT_PROMPT.md` | The message you paste to an agent to install everything |
+| `SEED.md` | Phased runbook: command, expected result, when to ask |
+| `../docs/DATA_PROJECTS.md` | What changes in data projects (BigQuery, Dataform, Snowflake, dbt) |
+| `../docs/INSTALL.md` | Step-by-step installation for people |
+| `seed.sh` | Orchestrator: `doctor`, `machine`, `project`, `panel`, `verify` |
+| `manifest.yaml` | Tested versions, ports, phases, prohibitions (machine-readable) |
+| `spec/` | Complete technical specification: design, replication (§21), common problems |
 
-## Uso rápido
+## Quick start
 ```bash
 cd <KIT>
-seed-bundle/seed.sh doctor                                    # requisitos
-seed-bundle/seed.sh machine --yes                             # una vez por equipo
-seed-bundle/seed.sh project /ruta/al/repo mi-proyecto --lang auto --profile auto
-seed-bundle/seed.sh panel --yes                               # panel en http://127.0.0.1:45876
-seed-bundle/seed.sh verify /ruta/al/repo
+seed-bundle/seed.sh doctor                                    # requirements
+seed-bundle/seed.sh machine --yes                             # once per machine
+seed-bundle/seed.sh project /path/to/repo my-project --lang auto --profile auto
+seed-bundle/seed.sh panel --yes                               # panel at http://127.0.0.1:45876
+seed-bundle/seed.sh verify /path/to/repo
 ```
-`--lang auto` y `--profile auto` detectan idioma y tipo de proyecto y, si no están claros, **salen con código 3 para que el agente te pregunte**.
+`--lang auto` and `--profile auto` detect the language and project type and, if they aren't clear, **exit with code 3 so the agent asks you**.
 
-## Requisitos
-macOS con Docker Desktop (única plataforma validada), Claude Code ≥ 2.1.287 con sesión iniciada, Python 3, git y conexión a internet para la primera instalación (imágenes Docker, modelo de embeddings ~640 MB, plugin `cognee-memory` del marketplace público de Cognee).
+## Requirements
+macOS with Docker Desktop (the only validated platform), Claude Code ≥ 2.1.287 with a signed-in session, Python 3, git, and an internet connection for the first installation (Docker images, embeddings model ~640 MB, the `cognee-memory` plugin from Cognee's public marketplace).
 
-## Privacidad
-Todo corre en tu equipo (puertos solo en `127.0.0.1`). Sale a Claude únicamente el texto que se **indexa** y el texto recuperado que lees en la conversación; la auditoría de vulnerabilidades envía a `api.osv.dev` solo nombres y versiones de paquetes. No se guardan credenciales: los perfiles excluyen `profiles.yml`, llaves, cuentas de servicio y estado de Terraform.
+## Privacy
+Everything runs on your machine (ports only on `127.0.0.1`). Only the text that is **indexed** and the retrieved text you read in the conversation go out to Claude; the vulnerability audit sends only package names and versions to `api.osv.dev`. No credentials are stored: the profiles exclude `profiles.yml`, keys, service accounts, and Terraform state.

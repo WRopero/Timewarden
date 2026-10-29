@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Auditoria de vulnerabilidades contra OSV (api.osv.dev) usando las versiones EXACTAS de los lockfiles. Sin LLM.
+"""Audit of vulnerabilities against OSV (api.osv.dev) using the EXACT versions from the lockfiles. No LLM.
 
-  run <repo> [--force] [--max-age-hours 24]   consulta OSV (si el ultimo resultado es viejo) y guarda el resultado
-  status <repo> [--lang es|en]                resumen compacto para el briefing (no usa red)
-Resultado en ~/.local/share/agents_memory_system/audit/<project_id>.json (fuera del repo). Si hay cambios, regenera
-docs/agent-memory/security/dependencias.md (checklist de pendientes). Sin red: registra el error y no molesta.
-Aceptar un riesgo: lista el ID en .agent-memory/security-ignore.txt (una linea: ID  motivo).
+  run <repo> [--force] [--max-age-hours 24]   queries OSV (if the last result is stale) and saves the result
+  status <repo> [--lang es|en]                compact summary for the briefing (does not use the network)
+Result in ~/.local/share/agents_memory_system/audit/<project_id>.json (outside the repo). If there are changes, it regenerates
+docs/agent-memory/security/dependencies.md (checklist of pending items). Without network: records the error and does not bother.
+Accept a risk: list the ID in .agent-memory/security-ignore.txt (one line: ID  reason).
 """
 import json, re, sys, time, urllib.request
 from datetime import datetime, timezone
@@ -72,7 +72,7 @@ def run(repo, force, max_age):
                 res["vulns"].append({"id": vid, "cves": cves, "pkg": name, "eco": eco, "version": allp[k], "severity": sev, "fixed": fixed,
                                      "direct": k in direct, "summary": (v.get("summary") or v.get("details", "")[:100]).replace("\n", " ")})
         res["vulns"].sort(key=lambda x: (-SEV.get(x["severity"], 0), not x["direct"], x["pkg"]))
-    except Exception as exc:  # sin red u OSV caido: no es un fallo del proyecto
+    except Exception as exc:  # no network or OSV down: not a project failure
         res = {**(old or {"vulns": [], "checked": len(allp)}), "at": (old or {}).get("at", res["at"]), "error": f"{type(exc).__name__}: {exc}"[:200], "error_at": res["at"]}
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(res, indent=1, ensure_ascii=False), encoding="utf-8")
@@ -92,11 +92,11 @@ def status(repo, lang):
             f"Security: OSV audit {age_d:.1f} d ago ({aud['checked']} packages): {len(v)} open, {hi} high/critical")
     out = [head + (" [auditoria desactualizada]" if es and age_d > 7 else "")]
     if aud.get("error"):
-        out[0] += f" · ultimo intento fallo: {aud['error'][:60]}"
+        out[0] += f" · last attempt failed: {aud['error'][:60]}"
     for x in v[:5]:
-        out.append(f"  - [ ] {x['severity']} {x['pkg']} {x['version']} {x['id']}" + (f" -> {x['fixed']}" if x.get("fixed") else "") + (" (directa)" if x["direct"] else ""))
+        out.append(f"  - [ ] {x['severity']} {x['pkg']} {x['version']} {x['id']}" + (f" -> {x['fixed']}" if x.get("fixed") else "") + (" (direct)" if x["direct"] else ""))
     if len(v) > 5:
-        out.append(f"  - … +{len(v) - 5} (docs/agent-memory/security/dependencias.md)")
+        out.append(f"  - … +{len(v) - 5} (docs/agent-memory/security/dependencies.md)")
     return out
 
 
@@ -110,6 +110,6 @@ if __name__ == "__main__":
     opt = lambda k, d=None: a[a.index(k) + 1] if k in a else d
     if a[0] == "run":
         res, ran = run(r, "--force" in a, float(opt("--max-age-hours", 24)))
-        print(("auditoria ejecutada: " if ran else "reciente, sin consultar: ") + f"{len(res.get('vulns', []))} abierta(s)" + (f" · error: {res['error']}" if res.get("error") else ""))
+        print(("audit run: " if ran else "recent, not queried: ") + f"{len(res.get('vulns', []))} open" + (f" · error: {res['error']}" if res.get("error") else ""))
     else:
-        print("\n".join(status(r, opt("--lang", "es"))))
+        print("\n".join(status(r, opt("--lang", "en"))))
