@@ -16,7 +16,7 @@ Retrieves project context from memory (Cognee) and checks it against the current
    `query=<specific question>`, `datasets="<memory_dataset>"` (**string, not a list**), `search_type="CHUNKS"`, `top_k=5`.
    A `404 Not Found` almost always means a nonexistent dataset name: copy `memory_dataset` literally from `project.yaml`
    (e.g. `my-project-knowledge`, not `my-project`). Omitting `search_type` returns a graph-synthesized answer (uses more LLM).
-   Each chunk begins with `[memoria-proyecto] ... doc_id=... status=... path=...`: use `path` as the source.
+   Each chunk begins with `[project-memory] ... doc_id=... status=... path=...` (legacy chunks indexed before v0.2.3 start with `[memoria-proyecto]`): use `path` as the source.
 4. Discard or label anything with `status: superseded|archived` and be wary of `draft`.
 5. **Check freshness without spending tokens:** `python3 -I <MS>/scripts/memory_stale.py <repo> <doc path>`.
    - `FRESH` (the `source_paths` have not changed since `source_commit`): use the memory as is, **do not open code**.

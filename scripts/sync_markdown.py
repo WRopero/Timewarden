@@ -95,7 +95,7 @@ def enumerate_docs(repo: Path, cfg: dict) -> dict[str, dict]:
 
 
 def payload(project_id: str, d: dict) -> str:
-    header = (f"[memoria-proyecto] project_id={project_id} doc_id={d['doc_id']} type={d['type']} "
+    header = (f"[project-memory] project_id={project_id} doc_id={d['doc_id']} type={d['type']} "
               f"status={d['status']} path={d['path']} source_commit={d['commit']} updated_at={d['updated_at']}")
     return f"{header}\n{d['text']}"
 
@@ -135,15 +135,19 @@ def plan(docs: dict, entries: dict) -> dict[str, list[str]]:
     return out
 
 
-def verify(c: Cognee, dataset: str, d: dict, data_id: str) -> bool:
-    """A document is indexed if a search for its title returns a
-    chunk whose `document_id` is the data_id that Cognee assigned to it."""
+def verify(c: Cognee, dataset: str, d: dict, data_id: str, project_id: str = "") -> bool:
+    """A document is indexed if a search returns a chunk whose `document_id` is the data_id Cognee assigned to it.
+    Two queries: the chunk header written by `payload()` (matches the first chunk of any document) and the title."""
     title = next((ln.lstrip("# ").strip() for ln in d["text"].splitlines() if ln.startswith("# ")), d["doc_id"])
-    try:
-        res = c.search(dataset, f"{title} {d['doc_id']}", "CHUNKS", top_k=8)
-    except CogneeError:
-        return False
-    return any(ch.get("document_id") == data_id for grp in res for ch in grp.get("search_result", []))
+    tail = f"project_id={project_id} doc_id={d['doc_id']} type={d['type']} status={d['status']}"
+    for query in (f"[project-memory] {tail}", f"[memoria-proyecto] {tail}", f"{title} {d['doc_id']}"):   # 2nd = legacy marker (before v0.2.3)
+        try:
+            res = c.search(dataset, query, "CHUNKS", top_k=8)
+        except CogneeError:
+            continue
+        if any(ch.get("document_id") == data_id for grp in res for ch in grp.get("search_result", [])):
+            return True
+    return False
 
 
 def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool) -> None:
@@ -170,8 +174,8 @@ def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool) -> None
     for path in p["new"] + p["changed"] + p["retry"]:
         d = docs[path]
         try:
-            if path in p["changed"]:
-                retire(path)
+            if path in p["changed"] or path in p["retry"]:
+                retire(path)   # a retry must delete the stale item first: re-adding identical content is a no-op in Cognee
             r = c.add_text(dataset, payload(pid, d))
             data_id = r["data_ingestion_info"][0]["data_id"]
             entries[path] = {"doc_id": d["doc_id"], "hash": d["hash"], "commit": d["commit"],
@@ -197,7 +201,7 @@ def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool) -> None
             raise
         print(f"  cognify done in {time.time() - t:.0f}s")
         for path in submitted:
-            ok = verify(c, dataset, docs[path], entries[path]['data_id']) if do_verify else True
+            ok = verify(c, dataset, docs[path], entries[path]['data_id'], pid) if do_verify else True
             entries[path]["status"] = "indexed" if ok else "unverified"
             print(f"  {'indexed  ' if ok else 'UNVERIFIED'} {path}")
     save_registry(reg)
