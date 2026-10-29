@@ -140,7 +140,9 @@ def verify(c: Cognee, dataset: str, d: dict, data_id: str, project_id: str = "")
     Two queries: the chunk header written by `payload()` (matches the first chunk of any document) and the title."""
     title = next((ln.lstrip("# ").strip() for ln in d["text"].splitlines() if ln.startswith("# ")), d["doc_id"])
     tail = f"project_id={project_id} doc_id={d['doc_id']} type={d['type']} status={d['status']}"
-    for query in (f"[project-memory] {tail}", f"[memoria-proyecto] {tail}", f"{title} {d['doc_id']}"):   # 2nd = legacy marker (before v0.2.3)
+    body = re.sub(r"^---\n.*?\n---\n", "", d["text"], count=1, flags=re.S)
+    opening = " ".join(body.split())[:300]   # the document's own first words: matches its first chunk even without a header
+    for query in (f"[project-memory] {tail}", f"[memoria-proyecto] {tail}", opening, f"{title} {d['doc_id']}"):   # 2nd = legacy marker (before v0.2.3)
         try:
             res = c.search(dataset, query, "CHUNKS", top_k=8)
         except CogneeError:
