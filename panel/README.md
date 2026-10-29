@@ -8,7 +8,7 @@ Corre en `http://127.0.0.1:45876`, solo local.
 
 El `.env` (0600) se genera en cada equipo con `scripts/setup.py` y está en `.gitignore`: el código no contiene secretos.
 
-Requisitos: Docker Desktop corriendo y el stack de memoria arriba (este panel viene dentro del kit **OpenMemory**, carpeta `panel/`; ver `seed-bundle/SEED.md`). El panel se conecta a ese stack, así que sin él no tiene nada que mostrar.
+Requisitos: Docker Desktop corriendo y el stack de memoria arriba (este panel viene dentro del kit **Timewarden**, carpeta `panel/`; ver `seed-bundle/SEED.md`). El panel se conecta a ese stack, así que sin él no tiene nada que mostrar.
 
 ```bash
 cd <KIT>/panel

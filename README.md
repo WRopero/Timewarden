@@ -1,10 +1,12 @@
-<p align="center"><img src="docs/assets/logo-wordmark.svg" alt="OpenMemory" width="560"></p>
+<p align="center"><img src="docs/assets/logo-wordmark.svg" alt="Timewarden" width="560"></p>
 
-# OpenMemory
+# Timewarden
+
+*El guardián del tiempo de tu proyecto:* recuerda qué se decidió, qué se desplegó y en qué rama quedó cada cosa.
 
 **Memoria persistente, verificable y local para agentes de código (Claude Code), con OpenSpec como director de cada cambio.**
 
-OpenMemory convierte un repositorio en un proyecto que *recuerda*: al abrir una sesión el agente ya sabe el objetivo, las decisiones vigentes, qué está desplegado y qué no (por rama), qué vulnerabilidades hay abiertas y en qué quedó el último trabajo. Para lo que no está en ese resumen, consulta una memoria semántica que corre **en tu propio equipo** (Docker), sin costo por consulta.
+Timewarden convierte un repositorio en un proyecto que *recuerda*: al abrir una sesión el agente ya sabe el objetivo, las decisiones vigentes, qué está desplegado y qué no (por rama), qué vulnerabilidades hay abiertas y en qué quedó el último trabajo. Para lo que no está en ese resumen, consulta una memoria semántica que corre **en tu propio equipo** (Docker), sin costo por consulta.
 
 > Se instala solo: le pasas la carpeta a un agente, él detecta el tipo de proyecto (dbt, Dataform, Snowflake, BigQuery, aplicación web…), **te pregunta lo que sea ambiguo** y deja todo listo. Ver [`seed-bundle/AGENT_PROMPT.md`](seed-bundle/AGENT_PROMPT.md).
 
@@ -25,7 +27,7 @@ Indexar documentos nuevos sí consume la suscripción de Claude (≈ 2 llamadas 
 
 ## Instalación en 4 comandos
 ```bash
-cd OpenMemory
+cd Timewarden
 seed-bundle/seed.sh doctor                                   # requisitos
 seed-bundle/seed.sh machine --yes                            # una vez por equipo (Docker + observer)
 seed-bundle/seed.sh project /ruta/al/repo mi-proyecto --lang auto --profile auto

@@ -1,6 +1,6 @@
 # Proyectos de datos: BigQuery, Dataform, Snowflake y dbt
 
-OpenMemory funciona igual en cualquier repositorio, pero en datos lo que importa recordar y vigilar es distinto: **costo de cada consulta, entornos, linaje, calidad, permisos y versiones de las herramientas**. Para eso existen los *perfiles por capas*.
+Timewarden funciona igual en cualquier repositorio, pero en datos lo que importa recordar y vigilar es distinto: **costo de cada consulta, entornos, linaje, calidad, permisos y versiones de las herramientas**. Para eso existen los *perfiles por capas*.
 
 ## Cómo decide qué tipo de proyecto es
 `scripts/detect_project_type.py` puntúa evidencias en el repo y devuelve capas, confianza y evidencias. **Si no está claro, el instalador sale con código 3 y el agente te pregunta**; nunca adivina.

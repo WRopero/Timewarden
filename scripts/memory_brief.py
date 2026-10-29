@@ -121,6 +121,18 @@ if osd.is_dir():
     out += ["", f"OpenSpec: {nspec} spec(s) vigente(s); cambios activos: {', '.join(act) if act else 'ninguno'}" if lang == "es" else
             f"OpenSpec: {nspec} current spec(s); active changes: {', '.join(act) if act else 'none'}"]
 
+# Higiene de Git: cambios sin commit (y cuantos son de memoria) y desfase de la rama principal con origin (refs locales, sin red)
+def _git(*a):
+    return subprocess.run(["git", "-C", str(repo), *a], capture_output=True, text=True).stdout.strip()
+_st = [l[3:] for l in _git("status", "--porcelain").splitlines() if l]
+_mem = [f for f in _st if f.startswith(("docs/agent-memory", ".agent-memory", "openspec", "CLAUDE.md"))]
+_main = (_git("symbolic-ref", "--short", "refs/remotes/origin/HEAD") or "origin/master").split("/", 1)[-1]
+_ab = _git("rev-list", "--left-right", "--count", f"{_main}...origin/{_main}").split()
+_ahead, _behind = (int(_ab[0]), int(_ab[1])) if len(_ab) == 2 else (0, 0)
+if _st or _ahead or _behind:
+    out += ["", (f"Git: {len(_st)} archivo(s) sin commit ({len(_mem)} de memoria/OpenSpec); {_main} local vs origin: +{_ahead}/-{_behind}. Regla: commit y rama principal al dia." if lang == "es" else
+                 f"Git: {len(_st)} uncommitted file(s) ({len(_mem)} memory/OpenSpec); local {_main} vs origin: +{_ahead}/-{_behind}. Rule: commit and keep main up to date.")]
+
 # Retomar: checkpoint automatico de la RAMA ACTUAL (no el ultimo que se escribio en cualquier rama) y el ultimo handoff real
 branch = subprocess.run(["git", "-C", str(repo), "branch", "--show-current"], capture_output=True, text=True).stdout.strip()
 auto = mem / "handoffs" / "_local" / f"auto-{re.sub(r'[^A-Za-z0-9._-]', '_', branch or 'detached')}.md"

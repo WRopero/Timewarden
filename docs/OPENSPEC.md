@@ -1,6 +1,6 @@
 # OpenSpec: quién dirige el trabajo
 
-[OpenSpec](https://github.com/Fission-AI/OpenSpec) es desarrollo guiado por especificaciones. En OpenMemory es **obligatorio y forma parte de la instalación**: ningún cambio de producto se implementa sin un cambio de OpenSpec activo.
+[OpenSpec](https://github.com/Fission-AI/OpenSpec) es desarrollo guiado por especificaciones. En Timewarden es **obligatorio y forma parte de la instalación**: ningún cambio de producto se implementa sin un cambio de OpenSpec activo.
 
 ## La regla (se escribe en el `CLAUDE.md` del proyecto)
 Toda funcionalidad nueva, cambio de comportamiento, refactor no trivial o cambio de datos/infraestructura sigue:

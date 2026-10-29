@@ -1,4 +1,4 @@
-# Cómo instalar OpenMemory
+# Cómo instalar Timewarden
 
 Hay dos caminos: **con un agente** (recomendado: él detecta el idioma y el tipo de proyecto y te pregunta lo ambiguo) o **a mano**. En ambos casos la instalación tiene dos niveles: **una vez por equipo** (el stack) y **una vez por repositorio** (el contrato, los hooks, las skills y OpenSpec).
 
@@ -14,8 +14,8 @@ Hay dos caminos: **con un agente** (recomendado: él detecta el idioma y el tipo
 
 ## 1. Obtener el kit
 ```bash
-git clone https://github.com/<tu-usuario>/OpenMemory.git      # o descomprime el .zip del release
-cd OpenMemory
+git clone https://github.com/<tu-usuario>/Timewarden.git      # o descomprime el .zip del release
+cd Timewarden
 ```
 Puede vivir en **cualquier carpeta**: las rutas se resuelven desde su ubicación y cada repo guarda la suya en `.agent-memory/local.yaml` (no versionado).
 
