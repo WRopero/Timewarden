@@ -1,0 +1,25 @@
+flowchart LR
+  subgraph MAC["Tu Mac"]
+    direction TB
+    MD["Repo del proyecto<br/>docs/agent-memory (Git)"]
+    CC["Claude Code<br/>plugin · skills · hooks"]
+    OBS["Observer :8017<br/>claude -p haiku"]
+  end
+  subgraph DK["Docker · agents_memory_net"]
+    direction TB
+    MCP["Cognee MCP :45873"]
+    API["Cognee API :45874"]
+    PG[("Postgres + pgvector<br/>schema ds_ por dataset")]
+    GR[("Grafo Ladybug<br/>.lbug por dataset")]
+  end
+  MD -->|"sync por hash"| API
+  CC -->|"hooks HTTP"| API
+  CC -->|"MCP recall"| MCP
+  MCP --> API
+  API --> PG
+  API --> GR
+  API -->|"host.docker.internal<br/>token Bearer"| OBS
+  classDef mac fill:#E0F2EE,stroke:#176B7B,color:#12202B
+  classDef dock fill:#E8EEF7,stroke:#3B5B8C,color:#12202B
+  class CC,OBS,MD mac
+  class API,MCP,PG,GR dock

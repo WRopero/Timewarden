@@ -1,0 +1,8 @@
+#### dbt profile
+- **Structure and lineage:** `models/` (staging → intermediate → marts), `seeds/`, `snapshots/`, `macros/`, `tests/`, `packages.yml`. Always go through `ref()` / `source()`; never hand-written `db.schema.table`. Document each model's *grain*.
+- **Environments and credentials:** `profiles.yml` lives outside the repo (`~/.dbt/`): do not read it or store it in memory. Respect the *targets* (`dev`, `ci`, `prod`): **never run `dbt run/build/seed/snapshot` against `prod` without explicit approval**. To explore use `dbt compile`, `dbt ls`, `dbt show --limit` and `--empty`.
+- **Efficient CI:** `dbt build --select state:modified+ --defer --state <prod manifest>`; before proposing a change to a model, list its descendants (`dbt ls --select <model>+`).
+- **Quality:** every new model ships with tests (`unique`, `not_null`, `relationships`, `accepted_values`), a description and, for marts, `contract: {enforced: true}` with types. Sources get `freshness`. A failing test is investigated, never disabled to go green.
+- **Incrementals:** declare `unique_key`, `incremental_strategy` (merge / delete+insert / microbatch) and `on_schema_change`; **`--full-refresh` on large tables needs approval** (cost and data window).
+- **Versions and security:** pin `dbt-core`, the adapter and the `packages.yml` packages; a security bump is recorded by putting the CVE in the commit message (it lands in the security history). Check `require-dbt-version`.
+- **Deployment:** "deployed" = the production job succeeded on that commit (dbt Cloud / Airflow / CI). Record it with `memory_deploy.py record` only after verifying. Keep in memory: grain, owner, SLA and dependencies of each mart, and materialization decisions.

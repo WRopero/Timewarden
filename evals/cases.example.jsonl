@@ -1,0 +1,4 @@
+{"id":"q01","lang":"en","q":"Why was approach X chosen over approach Y for the importer?","expect":["decision-0001-example"]}
+{"id":"q02","lang":"es","q":"¿Cuál es el procedimiento de despliegue a producción?","expect":["runbook-deploy-example"]}
+{"id":"q03","lang":"en","q":"What business rule defines how duplicates are detected?","expect":["business-rules"]}
+{"id":"q04","lang":"en","q":"Question the corpus cannot answer (control)","expect":[],"unanswerable":true}

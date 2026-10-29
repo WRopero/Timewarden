@@ -1,0 +1,7 @@
+#### Capa BigQuery
+- **Costo = bytes procesados (on-demand) o slots (reservas).** Antes de ejecutar una consulta nueva o pesada haz un *dry run* (`bq query --dry_run` o `dryRun` en la API) y reporta los bytes estimados; no ejecutes si superan lo acordado sin aprobación. Nada de `SELECT *` (BigQuery cobra por columnas leídas) ni `LIMIT` como control de costo.
+- **Diseño de tablas:** particiona por fecha/ingesta (`PARTITION BY`) y exige filtro (`require_partition_filter = TRUE`) en tablas grandes; `CLUSTER BY` en columnas de filtro/unión frecuentes; define expiración en datasets de staging; usa tipos nativos (`DATE`, `NUMERIC`) y esquemas explícitos.
+- **Ubicación:** datasets y consultas deben estar en la misma *location*; no mezcles regiones (falla o duplica costo).
+- **Seguridad e IAM:** roles mínimos (`bigquery.jobUser` para ejecutar, `dataViewer`/`dataEditor` por dataset, no a nivel de proyecto); cuentas de servicio con Workload Identity/ADC, **sin llaves JSON en el repo**; vistas autorizadas o *column-level security* para datos personales.
+- **Infraestructura como código:** si hay Terraform, `terraform plan` antes de todo `apply`; **`apply`/`destroy` solo con aprobación**; estado remoto, nunca `*.tfstate` ni `*.tfvars` en el repo.
+- **Memoria:** registra por tabla: grain, partición/clustering, dueño, SLA y costo típico por ejecución; por entorno: proyecto, *location* y datasets (nombres lógicos, sin credenciales).

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Lanza Claude Code con telemetria OTel hacia el collector local (127.0.0.1:45875)
+# e identidad de ejecucion. Uso: claude-memory <project_id> [variant] [-- args claude]
+# No exporta prompts ni argumentos de herramientas (valores por defecto de Claude Code).
+set -euo pipefail
+PROJECT_ID="${1:?project_id}"; VARIANT="${2:-B}"; shift 2 || true
+[ "${1:-}" = "--" ] && shift
+export CLAUDE_CODE_ENABLE_TELEMETRY=1
+export OTEL_METRICS_EXPORTER=otlp OTEL_LOGS_EXPORTER=otlp
+export OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+export OTEL_EXPORTER_OTLP_ENDPOINT="${OTEL_EXPORTER_OTLP_ENDPOINT:-http://127.0.0.1:45875}"
+export OTEL_METRIC_EXPORT_INTERVAL="${OTEL_METRIC_EXPORT_INTERVAL:-10000}"
+export OTEL_LOGS_EXPORT_INTERVAL="${OTEL_LOGS_EXPORT_INTERVAL:-5000}"
+RUN_ID="${RUN_ID:-run-$(date +%Y%m%d-%H%M%S)-$RANDOM}"
+export OTEL_RESOURCE_ATTRIBUTES="project_id=$PROJECT_ID,run_id=$RUN_ID,variant=$VARIANT,actor=main_agent${OTEL_RESOURCE_ATTRIBUTES:+,$OTEL_RESOURCE_ATTRIBUTES}"
+exec claude "$@"

@@ -1,0 +1,15 @@
+# Ejemplo (el real vive en cada repo: .agent-memory/project.yaml)
+schema_version: 1
+project_id: client-project
+memory_dataset: client-project-knowledge
+session_dataset: client-project-sessions
+sources:
+  - docs/agent-memory/**/*.md
+exclude:
+  - '**/.env*'
+  - '**/credentials/**'
+policy:
+  cross_project_recall: false
+  capture_raw_sessions: false
+  max_recall_results: 5
+  context_token_budget: 1500

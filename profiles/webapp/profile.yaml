@@ -1,0 +1,3 @@
+id: webapp
+title: Aplicación web / servicio
+exclude: ['**/.env*', '**/*.pem', '**/*.key']

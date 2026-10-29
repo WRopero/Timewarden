@@ -1,0 +1,3 @@
+id: snowflake
+title: Snowflake (warehouse)
+exclude: ['**/*.p8', '**/*.pem', '**/rsa_key*', '**/.snowsql/**', '**/snowflake*.toml', '**/connections.toml']

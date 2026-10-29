@@ -1,0 +1,3 @@
+id: bigquery
+title: BigQuery (Google Cloud)
+exclude: ['**/*service-account*.json', '**/*-sa.json', '**/application_default_credentials.json', '**/*.tfstate', '**/*.tfstate.backup', '**/.terraform/**', '**/*.tfvars']

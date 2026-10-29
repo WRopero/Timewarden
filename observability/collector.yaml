@@ -1,0 +1,44 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+    timeout: 5s
+  # No persistir contenido de prompts/herramientas por defecto.
+  attributes/scrub:
+    actions:
+      - key: user.email
+        action: delete
+      - key: prompt
+        action: delete
+      - key: tool_input
+        action: delete
+
+exporters:
+  file:
+    path: /telemetry/otlp.json
+    rotation:
+      max_megabytes: 20
+      max_days: 14
+      max_backups: 50
+
+service:
+  telemetry:
+    metrics:
+      level: none
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [attributes/scrub, batch]
+      exporters: [file]
+    logs:
+      receivers: [otlp]
+      processors: [attributes/scrub, batch]
+      exporters: [file]
+    traces:
+      receivers: [otlp]
+      processors: [attributes/scrub, batch]
+      exporters: [file]

@@ -1,0 +1,3 @@
+id: dataform
+title: Dataform (SQLX, Google Cloud)
+exclude: ['**/.df-credentials.json', '**/node_modules/**', '**/*service-account*.json', '**/*-sa.json']

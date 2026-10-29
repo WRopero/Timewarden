@@ -1,0 +1,175 @@
+name: agents_memory_system
+
+# Memoria de proyecto con Cognee. Claude Code y el observer corren en el Mac;
+# aqui solo infraestructura. Ver docs/architecture.md.
+
+x-cognee-env: &cognee-env
+  # Relacional + vectores: una sola base, un esquema ds_<dataset_id> por dataset.
+  DB_PROVIDER: postgres
+  DB_HOST: agents_postgres
+  DB_PORT: "5432"
+  DB_NAME: agents_memory
+  DB_USERNAME: agents
+  DB_PASSWORD: ${AGENTS_PG_PASSWORD:?run scripts/gen_env.sh}
+  VECTOR_DB_PROVIDER: pgvector
+  # Con access control el motor vectorial exige credenciales propias, aunque
+  # apunten a la misma base que DB_*.
+  VECTOR_DB_HOST: agents_postgres
+  VECTOR_DB_PORT: "5432"
+  VECTOR_DB_NAME: agents_memory
+  VECTOR_DB_USERNAME: agents
+  VECTOR_DB_PASSWORD: ${AGENTS_PG_PASSWORD:?}
+  VECTOR_DATASET_DATABASE_HANDLER: pgvector_shared
+  # Grafo embebido (Ladybug) aislado por dataset. Requiere access control.
+  GRAPH_DATABASE_PROVIDER: ladybug
+  GRAPH_DATASET_DATABASE_HANDLER: ladybug
+  ENABLE_BACKEND_ACCESS_CONTROL: "true"
+  REQUIRE_AUTHENTICATION: "true"
+  DEFAULT_USER_EMAIL: ${COGNEE_USER_EMAIL:?}
+  DEFAULT_USER_PASSWORD: ${COGNEE_USER_PASSWORD:?}
+  FASTAPI_USERS_JWT_SECRET: ${COGNEE_JWT_SECRET:?}
+  FASTAPI_USERS_RESET_PASSWORD_TOKEN_SECRET: ${COGNEE_JWT_SECRET:?}
+  FASTAPI_USERS_VERIFICATION_TOKEN_SECRET: ${COGNEE_JWT_SECRET:?}
+  # LLM = observer del plugin (claude -p) que corre en el Mac.
+  LLM_PROVIDER: custom
+  LLM_MODEL: openai/claude-observer
+  LLM_ENDPOINT: http://host.docker.internal:8017/v1
+  LLM_API_KEY: ${OBSERVER_TOKEN:?}
+  LLM_INSTRUCTOR_MODE: json_schema_mode
+  # Embeddings locales (fastembed), bilingues ES/EN, contexto largo.
+  EMBEDDING_PROVIDER: fastembed
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-jinaai/jina-embeddings-v2-base-es}
+  EMBEDDING_DIMENSIONS: ${EMBEDDING_DIMENSIONS:-768}
+  FASTEMBED_CACHE_PATH: /models
+  CACHING: "true"
+  # Ahorro de tokens: sin LLM extra por consulta ni pasada improve() tras cada escritura.
+  # Historia de sesiones: escribir un turno no usa LLM; sin TTL para no perderla a los 7 dias.
+  SESSION_TTL_SECONDS: "0"
+  # Tope del improve() al cerrar cada sesion (lo dispara el plugin): 1 lote/ventana por corrida.
+  IMPROVE_DISTILL_MAX_BATCHES_PER_RUN: "1"
+  IMPROVE_TRACE_WINDOWS_PER_RUN: "1"
+  AUTO_FEEDBACK: "false"
+  IMPROVE_AUTO_ENABLED: "false"
+  TELEMETRY_DISABLED: "1"
+
+services:
+  agents_postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: agents
+      POSTGRES_PASSWORD: ${AGENTS_PG_PASSWORD:?}
+      POSTGRES_DB: agents_memory
+    # Ajustes para un corpus pequeño en SSD (auditoria 2026-10-27); recargables, sin cambiar datos
+    command:
+      - postgres
+      - -c
+      - jit=off                              # el JIT solo añade latencia a consultas cortas
+      - -c
+      - random_page_cost=1.1                 # SSD
+      - -c
+      - idle_in_transaction_session_timeout=60s   # libera conexiones colgadas en transaccion
+      - -c
+      - log_min_duration_statement=500ms     # deja rastro de consultas lentas
+    volumes:
+      - agents_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agents -d agents_memory"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [agents_memory_net]
+
+  agents_cognee_api:
+    image: agents/cognee:1.6.5
+    build:
+      context: .
+      dockerfile: cognee.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      agents_postgres:
+        condition: service_healthy
+    environment:
+      <<: *cognee-env
+      ENV: prod
+      HTTP_PORT: "8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - agents_graph_data:/cognee-storage
+      - agents_model_cache:/models
+    ports:
+      - "127.0.0.1:45874:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status==200 else 1)"]
+      interval: 15s
+      timeout: 6s
+      retries: 20
+      start_period: 90s
+    networks: [agents_memory_net]
+
+  agents_cognee_mcp:
+    image: cognee/cognee-mcp:main-37f788b
+    restart: unless-stopped
+    depends_on:
+      agents_cognee_api:
+        condition: service_healthy
+    environment:
+      TRANSPORT_MODE: http
+      API_URL: http://agents_cognee_api:8000
+      API_TOKEN: ${COGNEE_MCP_API_TOKEN:-}
+      # Las API keys autoalojadas se envian como X-Api-Key, no como Bearer.
+      COGNEE_API_AUTH_SCHEME: x-api-key
+    ports:
+      - "127.0.0.1:45873:8000"
+    networks: [agents_memory_net]
+
+  # El volumen nace root y el collector (uid 10001, imagen distroless) no podria
+  # escribir en el: un init de una sola ejecucion le asigna el dueño.
+  agents_telemetry_init:
+    image: pgvector/pgvector:pg17
+    user: "0:0"
+    entrypoint: ["chown", "-R", "10001:10001", "/telemetry"]
+    volumes:
+      - agents_telemetry_raw:/telemetry
+    restart: "no"
+    networks: [agents_memory_net]
+
+  agents_otel_collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    restart: unless-stopped
+    depends_on:
+      agents_telemetry_init:
+        condition: service_completed_successfully
+    command: ["--config=/etc/otelcol/collector.yaml"]
+    volumes:
+      - ../../observability/collector.yaml:/etc/otelcol/collector.yaml:ro
+      - agents_telemetry_raw:/telemetry
+    ports:
+      - "127.0.0.1:45875:4317"
+    networks: [agents_memory_net]
+
+  agents_analytics:
+    profiles: [eval]
+    build:
+      context: ../../analytics
+    # Corre como root solo para leer otlp.json (modo 0600, dueño 10001).
+    user: "0:0"
+    volumes:
+      - agents_telemetry_raw:/telemetry:ro
+      - agents_analytics_data:/data
+      - ../../analytics/out:/out
+      # Solo el archivo de eventos: el directorio contiene el token del observer.
+      - ${HOME}/.cognee-plugin/observer/observer-events.log:/observer/observer-events.log:ro
+    networks: [agents_memory_net]
+
+networks:
+  agents_memory_net:
+    driver: bridge
+
+volumes:
+  agents_pgdata:
+  agents_graph_data:
+  agents_model_cache:
+  agents_telemetry_raw:
+  agents_analytics_data:

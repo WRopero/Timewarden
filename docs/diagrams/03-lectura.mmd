@@ -1,0 +1,9 @@
+flowchart LR
+  B["Abrir sesión:<br/>briefing automático"] --> A{"¿Basta con el<br/>briefing y CLAUDE.md?"}
+  A -->|"sí"| R["Responder"]
+  A -->|"no"| C["recall CHUNKS<br/>0 llamadas"]
+  C --> G{"¿Las fuentes<br/>cambiaron en Git?"}
+  G -->|"no"| R
+  G -->|"sí"| H["Abrir solo<br/>esos archivos"] --> R
+  classDef free fill:#E0F2EE,stroke:#176B7B,color:#12202B
+  class B,C,R free

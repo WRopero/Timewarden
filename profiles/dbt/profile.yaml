@@ -1,0 +1,4 @@
+id: dbt
+title: dbt (data build tool)
+exclude: ['**/profiles.yml', '**/.user.yml', '**/target/**', '**/dbt_packages/**', '**/logs/**', '**/*.duckdb', '**/seeds/*_real*.csv']
+lockfiles_note: dbt-core / adaptador en requirements o pyproject; paquetes en packages.yml

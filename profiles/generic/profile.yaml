@@ -1,0 +1,3 @@
+id: generic
+title: Genérico
+exclude: ['**/.env*']

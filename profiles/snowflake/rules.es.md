@@ -1,0 +1,6 @@
+#### Capa Snowflake
+- **Costo = créditos de warehouse.** Elige el tamaño por carga (XS por defecto), con `AUTO_SUSPEND` corto; no dejes warehouses encendidos ni cambies su tamaño sin aprobación. Etiqueta consultas con `QUERY_TAG` (en dbt: `query_tag` en el target o `+query_tag`).
+- **Seguridad:** autenticación por par de llaves u OAuth para cuentas de servicio (no contraseñas); roles de mínimo privilegio (un rol para dbt/ETL, otro de solo lectura); políticas de enmascaramiento y `ROW ACCESS POLICY` para datos personales. Llaves `.p8/.pem` y `connections.toml` **nunca** al repo ni a la memoria.
+- **Desarrollo seguro:** clona producción con `CREATE ... CLONE` (copia de cero costo de almacenamiento) en vez de apuntar `dev` a `prod`; usa `TRANSIENT` para intermedios (menos *Fail-safe*) y define `DATA_RETENTION_TIME_IN_DAYS` conscientemente.
+- **Rendimiento:** `cluster_by` solo en tablas grandes con filtros selectivos; revisa el *query profile* (spilling, *partitions scanned*) antes de subir el warehouse; evita `SELECT *` sobre tablas anchas.
+- **Operación:** `GRANT ... COPY CURRENT GRANTS` / `copy_grants` al recrear objetos; cambios de DDL sobre producción solo por el pipeline. Registra en la memoria cuentas/entornos por nombre lógico (no credenciales).

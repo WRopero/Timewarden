@@ -1,0 +1,12 @@
+flowchart LR
+  A["Markdown<br/>en Git"] --> C{"¿Cambió<br/>el hash?"}
+  C -->|"no"| Z["Nada<br/>0 llamadas"]
+  C -->|"sí"| D["Reemplazar:<br/>borrar + add"]
+  D --> H["cognify<br/>observer → Claude"]
+  H --> I{"¿Se recupera<br/>el documento?"}
+  I -->|"sí"| J["indexed"]
+  I -->|"no"| K["reintento<br/>sin duplicar"]
+  classDef free fill:#E0F2EE,stroke:#176B7B,color:#12202B
+  classDef cost fill:#FCE9D2,stroke:#C96A12,color:#12202B
+  class Z,J free
+  class H cost

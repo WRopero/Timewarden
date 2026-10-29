@@ -1,0 +1,13 @@
+
+__pycache__/
+!*.example.env
+.claude/
+.codex/
+.DS_Store
+.venv/
+*.env
+AGENTS.md
+analytics/out/
+deploy/docker/.env
+dist/
+panel/.env

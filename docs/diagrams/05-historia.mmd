@@ -1,0 +1,11 @@
+flowchart LR
+  T["Cada turno<br/>0 llamadas"] --> CA["Caché de sesión<br/>sin TTL"]
+  CA --> IMP["Cierre: improve<br/>lo lanza el plugin"]
+  IMP -->|"topes 1 + 1"| LLM["≈3 llamadas<br/>a Claude"]
+  LLM --> GR["Grafo del<br/>dataset"]
+  GR --> REC["Sesión nueva:<br/>recall lo recupera"]
+  CAP["COGNEE_CAPTURE=false"] -.->|"único interruptor"| IMP
+  classDef free fill:#E0F2EE,stroke:#176B7B,color:#12202B
+  classDef cost fill:#FCE9D2,stroke:#C96A12,color:#12202B
+  class T,CA,REC free
+  class IMP,LLM cost
