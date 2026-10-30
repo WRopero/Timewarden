@@ -2,12 +2,13 @@
 """Incremental sync of docs/agent-memory/**.md to Cognee.
 
 Usage:
-  sync_markdown.py <repo> [--apply] [--status] [--no-verify] [--only PREFIX]... [--max-docs N]
+  sync_markdown.py <repo> [--apply] [--status] [--no-verify] [--only PREFIX]... [--max-docs N] [--batch-size N] [--parallel N]
 
 Without --apply it only shows the plan (new / changed / unchanged / deleted).
 Registry states: pending -> submitted -> indexed | unverified | error.
 A document only becomes `indexed` if a search returns its `doc_id=` marker.
 --only PREFIX (repeatable) restricts the plan, the deletions and the apply to paths under that prefix or equal to it;
+--batch-size N (default 8) documents per cognify, --parallel N (default 2) batches at once; a failed batch does not stop the others.
 --max-docs N indexes at most N new/changed/retry documents in this run (the rest stay pending for the next run).
 """
 from __future__ import annotations
@@ -19,7 +20,9 @@ import hashlib
 import json
 import re
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -179,7 +182,27 @@ def verify(c: Cognee, dataset: str, d: dict, data_id: str, project_id: str = "")
     return False
 
 
-def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool, max_docs: int = 0) -> None:
+POLL_SECONDS = 5
+BATCH_TIMEOUT = 1800        # seconds one batch may wait for Cognee to finish processing it
+DEFAULT_BATCH = 8           # documents per cognify
+DEFAULT_PARALLEL = 2        # batches processed at the same time (Cognee accepts concurrent cognify on one dataset)
+
+
+def wait_processed(c: Cognee, ds_id: str, data_ids: list[str]) -> None:
+    """Block until Cognee reports these items processed. Uses the per-item list when it covers them, else the dataset-wide pending count."""
+    own, t0 = set(data_ids), time.time()
+    while True:
+        st = c.processing_status(ds_id)
+        mine = [i for i in st.get("items", []) if i.get("id") in own]
+        if (len(mine) == len(own) and all(i.get("completed") for i in mine)) or (len(mine) != len(own) and st.get("pending", 1) == 0):
+            return
+        if time.time() - t0 > BATCH_TIMEOUT:
+            raise CogneeError(f"timed out after {BATCH_TIMEOUT}s waiting for Cognee to process the batch")
+        time.sleep(POLL_SECONDS)
+
+
+def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool, max_docs: int = 0,
+          batch_size: int = DEFAULT_BATCH, parallel: int = DEFAULT_PARALLEL) -> None:
     pid, dataset = cfg["project_id"], cfg["memory_dataset"]
     entries = reg.setdefault(pid, {})
     p = plan({k: v for k, v in docs.items() if in_scope(k)}, {k: v for k, v in entries.items() if in_scope(k)})
@@ -191,7 +214,12 @@ def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool, max_doc
     c = Cognee()
     c.ensure_dataset(dataset)
     ds_id = next(x["id"] for x in c.datasets() if x["name"] == dataset)
-    submitted: list[str] = []
+    getattr(c, "token", None)   # log in once, before the worker threads share the client
+    lock = threading.Lock()
+
+    def save() -> None:
+        with lock:
+            save_registry(reg)
 
     def retire(path: str) -> None:
         data_id = entries[path].get("data_id")
@@ -205,41 +233,75 @@ def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool, max_doc
             print(f"  deleted   {path}")
         except CogneeError as exc:
             entries[path].update(status="error", last_error=str(exc)[:300])
-    for path in p["new"] + p["changed"] + p["retry"]:
-        d = docs[path]
-        try:
-            if path in p["changed"] or path in p["retry"]:
-                retire(path)   # a retry must delete the stale item first: re-adding identical content is a no-op in Cognee
-            r = c.add_text(dataset, payload(pid, d))
-            data_id = r["data_ingestion_info"][0]["data_id"]
-            entries[path] = {"doc_id": d["doc_id"], "hash": d["hash"], "commit": d["commit"],
-                             "schema_version": SCHEMA_VERSION, "embedder": EMBEDDER,
-                             "type": d["type"], "doc_status": d["status"],
-                             "status": "submitted", "data_id": data_id, "last_error": "",
-                             "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}
-            submitted.append(path)
-            print(f"  submitted {path}")
-        except (CogneeError, KeyError, IndexError) as exc:
-            entries[path] = {**entries.get(path, {}), "doc_id": d["doc_id"], "hash": d["hash"],
-                             "status": "error", "last_error": str(exc)[:300]}
-            print(f"  ERROR     {path}: {exc}")
-        save_registry(reg)
-    if submitted:
-        print(f"  cognify ({len(submitted)} documents)...")
+
+    if do_verify:   # an earlier run may have been cut short while Cognee kept working: search before deleting and re-adding
+        def reconcile(path: str) -> bool:
+            e = entries[path]
+            if e.get("data_id") and verify(c, dataset, docs[path], e["data_id"], pid):
+                e.update(status="indexed", last_error="")
+                print(f"  reconciled {path}")
+                return True
+            return False
+        cand = [x for x in p["retry"] if entries[x].get("data_id")]
+        if cand:
+            with ThreadPoolExecutor(max_workers=max(1, parallel * 2)) as ex:
+                done = set(x for x, ok in zip(cand, ex.map(reconcile, cand)) if ok)
+            p["retry"] = [x for x in p["retry"] if x not in done]
+            save()
+
+    todo = p["new"] + p["changed"] + p["retry"]
+    size = max(1, batch_size)
+    batches = [todo[i:i + size] for i in range(0, len(todo), size)]
+
+    def run_batch(num: int, batch: list[str]) -> None:
+        submitted: list[str] = []
+        for path in batch:
+            d = docs[path]
+            try:
+                if path in p["changed"] or path in p["retry"]:
+                    retire(path)   # a retry must delete the stale item first: re-adding identical content is a no-op in Cognee
+                r = c.add_text(dataset, payload(pid, d))
+                data_id = r["data_ingestion_info"][0]["data_id"]
+                entries[path] = {"doc_id": d["doc_id"], "hash": d["hash"], "commit": d["commit"],
+                                 "schema_version": SCHEMA_VERSION, "embedder": EMBEDDER,
+                                 "type": d["type"], "doc_status": d["status"],
+                                 "status": "submitted", "data_id": data_id, "last_error": "",
+                                 "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}
+                submitted.append(path)
+                print(f"  submitted {path}")
+            except (CogneeError, KeyError, IndexError) as exc:
+                entries[path] = {**entries.get(path, {}), "doc_id": d["doc_id"], "hash": d["hash"],
+                                 "status": "error", "last_error": str(exc)[:300]}
+                print(f"  ERROR     {path}: {exc}")
+            save()
+        if not submitted:
+            return
+        print(f"  batch {num}/{len(batches)}: cognify ({len(submitted)} documents)...")
         t = time.time()
         try:
-            c.cognify(dataset)
+            c.cognify(dataset, background=True)   # returns at once: no HTTP timeout, however long Cognee takes
+            wait_processed(c, ds_id, [entries[x]["data_id"] for x in submitted])
         except CogneeError as exc:
             for path in submitted:
                 entries[path].update(status="error", last_error=f"cognify: {str(exc)[:250]}")
-            save_registry(reg)
-            raise
-        print(f"  cognify done in {time.time() - t:.0f}s")
+            save()
+            print(f"  batch {num}/{len(batches)}: FAILED ({exc}); its documents stay for the next run")
+            return
+        print(f"  batch {num}/{len(batches)}: cognify done in {time.time() - t:.0f}s")
         for path in submitted:
-            ok = verify(c, dataset, docs[path], entries[path]['data_id'], pid) if do_verify else True
+            ok = verify(c, dataset, docs[path], entries[path]["data_id"], pid) if do_verify else True
             entries[path]["status"] = "indexed" if ok else "unverified"
             print(f"  {'indexed  ' if ok else 'UNVERIFIED'} {path}")
-    save_registry(reg)
+        save()
+
+    with ThreadPoolExecutor(max_workers=max(1, parallel)) as ex:
+        futs = [ex.submit(run_batch, i + 1, b) for i, b in enumerate(batches)]
+        for f in futs:
+            try:
+                f.result()
+            except Exception as exc:   # one broken batch must not stop the rest
+                print(f"  batch crashed: {exc}")
+    save()
 
 
 def main() -> int:
@@ -250,6 +312,8 @@ def main() -> int:
     ap.add_argument("--no-verify", action="store_true")
     ap.add_argument("--only", action="append", default=[], metavar="PREFIX")
     ap.add_argument("--max-docs", type=int, default=0)
+    ap.add_argument("--batch-size", type=int, default=DEFAULT_BATCH, help="documents per cognify batch")
+    ap.add_argument("--parallel", type=int, default=DEFAULT_PARALLEL, help="batches processed at the same time")
     a = ap.parse_args()
     SCOPE.extend(a.only)
     repo = a.repo.resolve()
@@ -277,7 +341,7 @@ def main() -> int:
                 for path in p[k]:
                     print(f"  [{k}] {path}")
             return 0
-        apply(repo, cfg, docs, reg, not a.no_verify, a.max_docs)
+        apply(repo, cfg, docs, reg, not a.no_verify, a.max_docs, a.batch_size, a.parallel)
     return 0
 
 
