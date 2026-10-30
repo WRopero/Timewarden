@@ -55,3 +55,25 @@ class OpenSpecClassification(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProjectYaml(unittest.TestCase):
+    def test_list_items_with_inline_comments_keep_their_glob(self):
+        repo = Path(tempfile.mkdtemp())
+        (repo / ".agent-memory").mkdir()
+        (repo / ".agent-memory/project.yaml").write_text(
+            "project_id: demo\nsources:\n  - docs/agent-memory/**/*.md\n"
+            "  - openspec/specs/**/*.md          # current OpenSpec specs\n"
+            "  - openspec/changes/**/*.md        # active and archived proposals\n"
+            "exclude:\n  - '**/.env*'   # secrets\n")
+        cfg = sm.load_project(repo)
+        self.assertEqual(cfg["sources"], ["docs/agent-memory/**/*.md", "openspec/specs/**/*.md", "openspec/changes/**/*.md"])
+        self.assertEqual(cfg["exclude"], ["**/.env*"])
+
+    def test_shipped_template_sources_match_openspec_files(self):
+        repo = repo_with_openspec()
+        (repo / ".agent-memory").mkdir()
+        tmpl = (ROOT / "templates/project.yaml.tmpl").read_text().replace("__PROJECT_ID__", "demo").replace("__LANG__", "en")
+        (repo / ".agent-memory/project.yaml").write_text(tmpl)
+        docs = sm.enumerate_docs(repo, sm.load_project(repo))
+        self.assertEqual(sorted(p for p in docs if p.startswith("openspec/")), sorted(FILES))

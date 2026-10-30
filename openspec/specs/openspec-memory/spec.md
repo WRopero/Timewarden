@@ -24,6 +24,13 @@ If the repository uses OpenSpec, the system SHALL index `openspec/specs` as curr
 - **WHEN** a document's type or status changes but its content does not
 - **THEN** the next sync re-indexes it so the stored chunk carries the new label
 
+### Requirement: Contract sources tolerate comments
+The system SHALL ignore trailing `# comments` on every line of `.agent-memory/project.yaml`, list items included, so that the shipped template indexes OpenSpec specs and changes.
+
+#### Scenario: Commented source line
+- **WHEN** a source is written as `- openspec/specs/**/*.md   # current specs`
+- **THEN** the pattern used is `openspec/specs/**/*.md` and its files are indexed
+
 ### Requirement: Summary in the briefing
 The briefing SHALL list the number of current specs and the names of the active changes.
 

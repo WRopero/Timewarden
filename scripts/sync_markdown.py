@@ -42,7 +42,7 @@ def load_project(repo: Path) -> dict:
         indent = len(raw) - len(raw.lstrip())
         line = raw.strip()
         if line.startswith("- "):
-            cfg.setdefault(key, []).append(line[2:].strip().strip("'\""))
+            cfg.setdefault(key, []).append(re.sub(r"\s+#.*$", "", line[2:]).strip().strip("'\""))   # inline comments
         elif ":" in line:
             k, v = [p.strip() for p in line.split(":", 1)]
             v = re.sub(r"\s+#.*$", "", v).strip("'\"")  # inline comments
