@@ -2,11 +2,13 @@
 """Incremental sync of docs/agent-memory/**.md to Cognee.
 
 Usage:
-  sync_markdown.py <repo> [--apply] [--status] [--no-verify]
+  sync_markdown.py <repo> [--apply] [--status] [--no-verify] [--only PREFIX]... [--max-docs N]
 
 Without --apply it only shows the plan (new / changed / unchanged / deleted).
 Registry states: pending -> submitted -> indexed | unverified | error.
 A document only becomes `indexed` if a search returns its `doc_id=` marker.
+--only PREFIX (repeatable) restricts the plan, the deletions and the apply to paths under that prefix or equal to it;
+--max-docs N indexes at most N new/changed/retry documents in this run (the rest stay pending for the next run).
 """
 from __future__ import annotations
 
@@ -117,6 +119,13 @@ def save_registry(reg: dict) -> None:
     (view / "registry.json.tmp").replace(view / "registry.json")
 
 
+SCOPE: list[str] = []
+
+
+def in_scope(path: str) -> bool:
+    return not SCOPE or any(path == s or path.startswith(s.rstrip("/") + "/") for s in SCOPE)
+
+
 def plan(docs: dict, entries: dict) -> dict[str, list[str]]:
     out = {"new": [], "changed": [], "unchanged": [], "deleted": [], "skipped": [], "retry": []}
     for path, d in docs.items():
@@ -152,10 +161,15 @@ def verify(c: Cognee, dataset: str, d: dict, data_id: str, project_id: str = "")
     return False
 
 
-def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool) -> None:
+def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool, max_docs: int = 0) -> None:
     pid, dataset = cfg["project_id"], cfg["memory_dataset"]
     entries = reg.setdefault(pid, {})
-    p = plan(docs, entries)
+    p = plan({k: v for k, v in docs.items() if in_scope(k)}, {k: v for k, v in entries.items() if in_scope(k)})
+    if max_docs:
+        budget = max_docs
+        for key in ("new", "changed", "retry"):
+            p[key] = p[key][:budget]
+            budget -= len(p[key])
     c = Cognee()
     c.ensure_dataset(dataset)
     ds_id = next(x["id"] for x in c.datasets() if x["name"] == dataset)
@@ -215,7 +229,10 @@ def main() -> int:
     ap.add_argument("--apply", action="store_true")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--no-verify", action="store_true")
+    ap.add_argument("--only", action="append", default=[], metavar="PREFIX")
+    ap.add_argument("--max-docs", type=int, default=0)
     a = ap.parse_args()
+    SCOPE.extend(a.only)
     repo = a.repo.resolve()
     cfg = load_project(repo)
     STATE_DIR.mkdir(parents=True, exist_ok=True)
@@ -234,14 +251,14 @@ def main() -> int:
                 counts[e["status"]] = counts.get(e["status"], 0) + 1
             print(f"project={cfg['project_id']} dataset={cfg['memory_dataset']} registered={len(entries)} {counts}")
             return 0
-        p = plan(docs, entries)
+        p = plan({k: v for k, v in docs.items() if in_scope(k)}, {k: v for k, v in entries.items() if in_scope(k)})
         print(f"project={cfg['project_id']}: " + ", ".join(f"{k}={len(v)}" for k, v in p.items()))
         if not a.apply:
             for k in ("new", "changed", "retry", "deleted"):
                 for path in p[k]:
                     print(f"  [{k}] {path}")
             return 0
-        apply(repo, cfg, docs, reg, not a.no_verify)
+        apply(repo, cfg, docs, reg, not a.no_verify, a.max_docs)
     return 0
 
 

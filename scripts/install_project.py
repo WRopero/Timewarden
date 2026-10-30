@@ -3,7 +3,7 @@
 
 Usage: install_project.py <repo> --project-id <id> [--lang auto|es|en] [--profile auto|<layers>] [--no-capture]
 OpenSpec: --openspec auto|yes|no (auto = initializes it if the `openspec` CLI is installed; yes = requires the CLI, code 4 if missing).
-Profile = 1 or 2 comma-separated layers (dbt, dataform, snowflake, bigquery, webapp, python-lib, generic).
+Profile = 1 or 2 comma-separated layers (dbt, dataform, snowflake, bigquery, databricks, webapp, python-lib, generic).
 With --profile auto it detects the project type and, if ambiguous, asks (without a TTY it exits with code 3).
 Idempotent: does not overwrite existing files; merges (does not clobber) .claude/settings.local.json.
 Does not touch Docker or the plugin: see docs/operations.md and the replica guide (spec 21).
@@ -96,6 +96,10 @@ for t in prof_meta:
     m = re.search(r"^exclude:\s*\[(.*)\]\s*$", t, re.M)
     extra_ex += [x.strip() for x in m.group(1).split(",")] if m else []
 extra_ex = [e for e in dict.fromkeys(extra_ex) if e.strip("'\"") not in cfg]
+DATA_CORE = {"dbt", "dataform", "databricks"}
+DATA_ANY = DATA_CORE | {"bigquery", "snowflake"}
+if DATA_CORE & set(layers):   # change-driven graph sync settings (read by scripts/data_sync.py)
+    cfg = cfg.rstrip("\n") + "\ndata_graph:\n  auto_sync: true            # re-index changed graph documents automatically (only those whose content changed)\n  tool_exports: auto         # auto = use dbt manifest / dataform compile when available, else static parsing; off = static only\n  live_ttl_hours: 6          # live metadata check at most this often (only environments with metadata_sync: true)\n  max_auto_sync_docs: 20     # cap per automatic indexing run\n"
 cfg = cfg.replace("exclude:\n", "exclude:\n" + "".join(f"  - {e}\n" for e in extra_ex), 1)
 cfg = cfg.replace("memory_dataset:", f"profile: {','.join(layers)}                 # profile layers (profiles/): rules and exclusions\nmemory_dataset:", 1)
 put(repo / ".agent-memory/project.yaml", cfg)
@@ -115,6 +119,8 @@ section = sub((T / "CLAUDE.memory-section.md").read_text())
 prof_rules = [(PROFILES_DIR / l / f"rules.{lang}.md").read_text().strip() for l in layers if (PROFILES_DIR / l / f"rules.{lang}.md").exists() and l != "generic"]
 if prof_rules:
     section = section.rstrip("\n") + ("\n\n### Perfil del proyecto\n\n" if lang == "es" else "\n\n### Project profile\n\n") + "\n\n".join(sub(r) for r in prof_rules) + "\n"
+if DATA_ANY & set(layers) and (T / "data-graph-rules.md").exists():
+    section = section.rstrip("\n") + "\n\n" + sub((T / "data-graph-rules.md").read_text()).strip() + "\n"
 if claude.exists() and any(h in claude.read_text() for h in ("## Memoria del proyecto (Cognee)", "## Project memory (Cognee)")):
     print("  CLAUDE.md already has the memory section")
 else:
@@ -156,8 +162,14 @@ if a.openspec != "no":
         if a.openspec == "yes":
             sys.exit(4)
 ex = repo / ".git/info/exclude"
-for line in ("docs/agent-memory/handoffs/_local/", ".agent-memory/local.yaml"):
+for line in ("docs/agent-memory/handoffs/_local/", ".agent-memory/local.yaml", ".agent-memory/data-sync-state/"):
     if line not in ex.read_text():
         ex.write_text(ex.read_text().rstrip("\n") + "\n" + line + "\n")
+if DATA_ANY & set(layers):   # data projects: connection catalog (always) and lineage graph (dbt / Dataform / Databricks)
+    print("  data project: drafting the connection catalog (secret-free) ...")
+    subprocess.run([sys.executable, "-I", str(S / "data_connect.py"), "--repo", str(repo), "init"])
+    if DATA_CORE & set(layers):
+        r = subprocess.run([sys.executable, "-I", str(S / "data_sync.py"), "--repo", str(repo), "run", "--index", "off"], capture_output=True, text=True)
+        print("  data graph: " + (r.stdout.strip() or r.stderr.strip()[-200:]))
 print(f"\nDone. Next: write docs/agent-memory/project.md and the first documents, then\n"
       f"  {S}/memctl.sh sync {repo} --apply\n  (stack up and plugin/MCP configured: see spec 21)")

@@ -22,6 +22,10 @@
 |---|---|
 | `install_project.py` | Installs the memory into a repo: contract, templates, `CLAUDE.md`, hooks, skills, OpenSpec. Detects language and profile and asks if ambiguous |
 | `detect_language.py` / `detect_project_type.py` | es/en detection and project type (layers) detection with confidence and evidence; exit code 2 = ask the user |
+| `data_graph.py` | Lineage graph of a data repo (dbt, Dataform, Databricks): `build`, `find`, `show`, `upstream`, `downstream`, `impact`, `path`, `check`; writes `docs/agent-memory/data-graph/` |
+| `data_connect.py` | Secret-free connection catalog (`.agent-memory/connections.yaml`): `init`, `render`, `check`, `brief` |
+| `data_sync.py` | Change-driven sync: fingerprints, optional live metadata, rebuild only if changed, incremental indexing; `hook` is called by the briefing |
+| `data_sources.py`, `miniyaml.py` | Opt-in read-only live-metadata adapters (BigQuery, Snowflake, Databricks); YAML loader with a stdlib fallback |
 | `memory_brief.py` | **`SessionStart` hook**: builds the briefing (no LLM) and launches the security audit in the background |
 | `memory_checkpoint.py` | **`SessionEnd`/`PreCompact` hooks**: writes the branch checkpoint (`handoffs/_local/auto-<rama>.md`) and refreshes usage |
 | `memory_deploy.py` | Record of deployments per environment and state per branch (`record`/`status`) |
@@ -29,7 +33,7 @@
 | `memory_audit.py` | Vulnerability audit against OSV using the exact versions from the lockfiles |
 | `memory_stale.py` | Detects outdated memory documents by comparing their `source_paths` with Git, without spending tokens |
 | `sync_markdown.py` | Syncs `docs/agent-memory/` and the OpenSpec specs to Cognee (incremental by hash, verifies retrieval) |
-| `memctl.sh` | Daily operation: `up`, `stop`, `status`, `sync`, `eval` |
+| `memctl.sh` | Daily operation: `up`, `stop`, `status`, `sync`, `eval`, and for data projects `graph`, `connect`, `datasync` |
 | `memory_eval.py` | Evaluates recall@5 with questions from `evals/` |
 | `cognee_adapter.py` | Cognee HTTP client (add, cognify, search, forget) |
 | `observer.sh`, `observer_launchagent.sh` | Observer: local bridge that uses your Claude subscription (`claude -p`) so Cognee can summarize and index; the LaunchAgent keeps it alive across reboots |

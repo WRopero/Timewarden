@@ -24,6 +24,9 @@ Retrieves project context from memory (Cognee) and checks it against the current
    - `NO-SOURCE`: treat it as `draft`; verify only if the decision is critical.
 6. Answer briefly: decisions, constraints, sources (paths), uncertainties, and freshness.
 
+## Data projects (dbt / Dataform / Databricks)
+For structure and lineage (what a model reads, who consumes it, impact of a change) use skill `project-memory-data-graph` first: it is exact and free. Use `recall` for the *why*.
+
 ## Limits
 - Querying is cheap (CHUNKS does not use an LLM): do it when the briefing is not enough and before asking the user or assuming. Do not repeat the same question or query what the briefing already says; `top_k=3` unless evidence is missing.
 - Do not query datasets from other projects/clients or inject whole documents (maximum ~1,500 tokens).

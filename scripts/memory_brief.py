@@ -113,6 +113,17 @@ if (repo / ".agent-memory" / "project.yaml").exists():
     if aud:
         out += [""] + [l[:160] for l in aud]
 
+# Data projects: graph freshness + connection catalog. `data_sync.py hook` prints one line and, only if sources changed
+# (or a live check is due), launches the incremental sync detached: nothing runs when nothing changed.
+if (repo / ".agent-memory" / "project.yaml").exists():
+    try:
+        _dl = subprocess.run([sys.executable, "-I", str(here / "data_sync.py"), "--repo", str(repo), "hook"], capture_output=True, text=True, timeout=12).stdout.strip()
+        _cl = subprocess.run([sys.executable, "-I", str(here / "data_connect.py"), "--repo", str(repo), "brief"], capture_output=True, text=True, timeout=8).stdout.strip()
+        if _dl or _cl:
+            out += ["", *[x[:420] for x in (_dl, _cl) if x]]
+    except Exception:
+        pass
+
 # OpenSpec: active changes (proposals in progress) and number of current specs
 osd = repo / "openspec"
 if osd.is_dir():

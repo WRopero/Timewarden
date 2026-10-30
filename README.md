@@ -8,7 +8,7 @@
 
 Timewarden turns a repository into a project that *remembers*: when a session opens, the agent already knows the goal, the current decisions, what is deployed and what isn't (per branch), which vulnerabilities are open, and where the last piece of work was left off. For anything not in that summary, it queries a semantic memory that runs **on your own machine** (Docker), at no cost per query.
 
-> It installs itself: you hand the folder to an agent, it detects the project type (dbt, Dataform, Snowflake, BigQuery, web application…), **asks you about anything ambiguous**, and leaves everything ready. See [`seed-bundle/AGENT_PROMPT.md`](seed-bundle/AGENT_PROMPT.md).
+> It installs itself: you hand the folder to an agent, it detects the project type (dbt, Dataform, Databricks, Snowflake, BigQuery, web application…), **asks you about anything ambiguous**, and leaves everything ready. See [`seed-bundle/AGENT_PROMPT.md`](seed-bundle/AGENT_PROMPT.md).
 
 ## What you get
 
@@ -20,7 +20,10 @@ Timewarden turns a repository into a project that *remembers*: when a session op
 | **Deployment registry** | Which commit is in each environment, how many commits are missing, and whether the current branch is merged/deployed | No |
 | **Versions and security** | Dependency inventory, history (`security` vs `upgrade`), vulnerability audit (OSV) launched automatically when a session opens, and visible pending items | No |
 | **OpenSpec directs changes** | Mandatory rule: proposal → review → implementation → archive; specs are also indexed in the memory | Only when indexing |
-| **Data profiles** | Specialized rules for dbt + Snowflake, Dataform + BigQuery, BigQuery/Terraform, web apps | No |
+| **Data profiles** | Specialized rules for dbt, Dataform, Databricks, Snowflake, BigQuery/Terraform, web apps | No |
+| **Data project graph** | Offline lineage graph of a dbt / Dataform / Databricks repo (what reads what, impact of a change, conventions, health checks) answered exactly by `data_graph.py`; the same facts are written as documents Cognee indexes | Only when indexing |
+| **Connection catalog** | Secret-free per-environment recipes (system, auth method, env var names, validate/explore/dry-run commands) so agents stop asking how to connect | No |
+| **Change-driven sync** | A session-start hook fingerprints the repo (and, opt-in, live warehouse metadata) and rebuilds and re-indexes only what changed | Only changed documents |
 | **Management Memory dashboard** | Read-only board: health, vectors, graph, PostgreSQL, tokens/cost, memory usage | No |
 
 Indexing new documents does consume your Claude subscription (≈ 2 calls per fragment); querying does not.
@@ -42,7 +45,7 @@ seed-bundle/seed.sh panel --yes                              # panel en http://1
 | [`docs/COMPONENTS.md`](docs/COMPONENTS.md) | **What each thing is for**: folders, scripts, skills, hooks, containers, and the files that get created |
 | [`docs/HOW_IT_WORKS.md`](docs/HOW_IT_WORKS.md) | How it works, with graphs: installation, the lifecycle of a session, security audit, deployments, OpenSpec |
 | [`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md) | Everything it depends on (images, versions, tools) and what leaves your machine |
-| [`docs/DATA_PROJECTS.md`](docs/DATA_PROJECTS.md) | Data projects: BigQuery, Dataform, Snowflake, dbt |
+| [`docs/DATA_PROJECTS.md`](docs/DATA_PROJECTS.md) | Data projects: BigQuery, Dataform, Databricks, Snowflake, dbt; project graph, connection catalog, change-driven sync |
 | [`docs/OPENSPEC.md`](docs/OPENSPEC.md) | How OpenSpec directs the work and links to the memory |
 | [`docs/SECURITY_AND_PRIVACY.md`](docs/SECURITY_AND_PRIVACY.md) | Privacy, secrets, network surface, and prohibitions |
 | [`docs/architecture.md`](docs/architecture.md), [`docs/operations.md`](docs/operations.md), [`docs/continuity.md`](docs/continuity.md), [`docs/token-strategy.md`](docs/token-strategy.md), [`docs/diagrams.md`](docs/diagrams.md) | Detailed architecture, day-to-day operation, continuity between sessions, token strategy, diagrams |

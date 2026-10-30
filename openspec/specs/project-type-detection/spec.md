@@ -33,3 +33,10 @@ The installer SHALL accept the profile as an explicit argument and record it in 
 #### Scenario: Forced profile
 - **WHEN** installing with `--profile dataform-bigquery`
 - **THEN** the project contract records that profile and automatic detection is not run
+
+### Requirement: Databricks detection
+The detector SHALL recognize the `databricks` layer from `databricks.yml` bundles, the `dbt-databricks` adapter or `type: databricks` profiles, Delta Live Tables usage and `.databrickscfg` references, and MUST ask when Databricks and another warehouse both have evidence without a clear owner.
+
+#### Scenario: Bundle repository
+- **WHEN** the repository contains `databricks.yml`
+- **THEN** the detected layers include `databricks` with the bundle as evidence

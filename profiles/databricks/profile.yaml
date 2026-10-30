@@ -1,0 +1,3 @@
+id: databricks
+title: Databricks (Lakehouse, Unity Catalog, Asset Bundles)
+exclude: ['**/.databrickscfg', '**/.databricks/**', '**/*.pat', '**/dbfs-secrets*']

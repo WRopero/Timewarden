@@ -22,9 +22,15 @@ case "${1:-help}" in
     [ -n "${2:-}" ] && python3 -I "$ROOT/scripts/sync_markdown.py" "$2" --status || true ;;
   sync)
     shift; python3 -I "$ROOT/scripts/sync_markdown.py" "$@" ;;
+  graph)
+    R="$2"; shift 2; python3 -I "$ROOT/scripts/data_graph.py" --repo "$R" "$@" ;;
+  connect)
+    R="$2"; shift 2; python3 -I "$ROOT/scripts/data_connect.py" --repo "$R" "$@" ;;
+  datasync)
+    R="$2"; shift 2; python3 -I "$ROOT/scripts/data_sync.py" --repo "$R" "${@:-status}" ;;
   eval)
     REPO="$2"; PID=$(grep -E '^project_id:' "$REPO/.agent-memory/project.yaml" | awk '{print $2}')
     DS=$(grep -E '^memory_dataset:' "$REPO/.agent-memory/project.yaml" | awk '{print $2}')
     python3 -I "$ROOT/scripts/memory_eval.py" "$ROOT/evals/cases.$PID.jsonl" --dataset "$DS" --project-id "$PID" ;;
-  *) sed -n 2,9p "$0" ;;
+  *) sed -n 2,12p "$0" ;;
 esac
