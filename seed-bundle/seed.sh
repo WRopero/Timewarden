@@ -4,8 +4,9 @@
 #
 #   seed.sh doctor                          checks requirements (changes nothing)
 #   seed.sh machine --yes                   starts observer + Docker stack + keys (once per Mac)
-#   seed.sh project <repo> <project_id> [--lang auto|es|en] [--profile auto|<capas>] [--no-openspec] [--no-capture] [--with-plugin]
-#                                           installs the memory in the repo (contract, hooks, skills, templates)
+#   seed.sh project <repo> <project_id> [--lang auto|es|en] [--profile auto|<capas>] [--no-openspec] [--no-capture] [--no-plugin]
+#                                           installs the memory in the repo (contract, hooks, skills, templates, plugin; data projects: graph, catalog, discovery)
+#   seed.sh index <repo>                    indexes all pending documents (spends Claude tokens; the agent runs it unattended and reports the cost)
 #   seed.sh panel --yes                     starts Management Memory (included in the kit, panel/ folder) (control panel, read-only)
 #   seed.sh verify [<repo>]                 quick acceptance checks
 # Exits with 3 if the language OR the project type (profile: dbt/dataform/snowflake/bigquery/webapp/...) is ambiguous: the agent MUST ask the user.
@@ -59,10 +60,10 @@ machine() {
 }
 
 project() {
-  local repo="${1:?usage: seed.sh project <repo> <project_id> [--lang auto|es|en] [--profile auto|<capas>] [--no-openspec] [--no-capture] [--with-plugin]}" pid="${2:?missing project_id}"; shift 2
-  local lang=auto profile=auto osp=yes extra=() plugin=0
+  local repo="${1:?usage: seed.sh project <repo> <project_id> [--lang auto|es|en] [--profile auto|<capas>] [--no-openspec] [--no-capture] [--no-plugin]}" pid="${2:?missing project_id}"; shift 2
+  local lang=auto profile=auto osp=yes extra=() plugin=1
   while [ $# -gt 0 ]; do case "$1" in
-    --lang) lang="$2"; shift 2 ;; --profile) profile="$2"; shift 2 ;; --no-openspec) osp=no; shift ;; --no-capture) extra+=(--no-capture); shift ;; --with-plugin) plugin=1; shift ;; *) echo "unknown option: $1"; exit 2 ;; esac; done
+    --lang) lang="$2"; shift 2 ;; --profile) profile="$2"; shift 2 ;; --no-openspec) osp=no; shift ;; --no-capture) extra+=(--no-capture); shift ;; --with-plugin) plugin=1; shift ;; --no-plugin) plugin=0; shift ;; *) echo "unknown option: $1"; exit 2 ;; esac; done
   curl -s -m 4 http://127.0.0.1:45874/health | grep -q ready || { echo "The stack is not responding: run 'seed.sh machine --yes' first."; exit 1; }
   # exit code 3 (ambiguous language) is propagated as-is: the agent must ask the user
   python3 -I "$MS/scripts/install_project.py" "$repo" --project-id "$pid" --lang "$lang" --profile "$profile" --openspec "$osp" ${extra[@]+"${extra[@]}"}
@@ -72,12 +73,11 @@ project() {
   if [ "$plugin" = 1 ]; then
     (cd "$repo" && for c in "${cmds[@]}"; do echo "+ $c"; eval "$c"; done)
   else
-    echo; echo "Remaining (modifies global Claude Code settings; run from $repo after confirming with the user):"
-    printf '  %s\n' "${cmds[@]}"; echo "  or repeat this command with --with-plugin"
+    echo; echo "Plugin skipped (--no-plugin). To install it later, run from $repo:"
+    printf '  %s\n' "${cmds[@]}"
   fi
-  echo; echo "Next: write docs/agent-memory/project.md and the pilot corpus (project-memory-bootstrap skill), then:"
-  echo "  $MS/scripts/memctl.sh sync $repo           # plan"
-  echo "  $MS/scripts/memctl.sh sync $repo --apply   # indexes (~2 Claude calls per chunk)"
+  echo; echo "Next (agent, unattended): write docs/agent-memory/project.md and the pilot corpus (project-memory-bootstrap skill), then:"
+  echo "  $HERE/seed.sh index $repo                  # indexes everything pending (~2 Claude calls per chunk)"
 }
 
 panel() {
@@ -93,6 +93,14 @@ panel() {
   (cd "$MM_DIR" && python3 scripts/setup.py && docker compose up -d --build)
   for _ in $(seq 1 15); do curl -s -o /dev/null -m 3 http://127.0.0.1:45876/api/overview && break; sleep 2; done
   curl -s -o /dev/null -w "panel: HTTP %{http_code} at http://127.0.0.1:45876\n" http://127.0.0.1:45876/api/overview
+}
+
+index() {
+  local repo="${1:?usage: seed.sh index <repo>}"
+  curl -s -m 4 http://127.0.0.1:45874/health | grep -q ready || { echo "The stack is not responding: run 'seed.sh machine --yes' first."; exit 1; }
+  "$MS/scripts/memctl.sh" sync "$repo"
+  "$MS/scripts/memctl.sh" sync "$repo" --apply
+  "$MS/scripts/memctl.sh" sync "$repo" --status
 }
 
 verify() {
@@ -113,6 +121,6 @@ verify() {
 }
 
 case "${1:-help}" in
-  doctor) doctor ;; machine) shift; machine "$@" ;; project) shift; project "$@" ;; panel) shift; panel "$@" ;; verify) shift; verify "$@" ;;
-  *) sed -n 2,13p "$0" ;;
+  doctor) doctor ;; machine) shift; machine "$@" ;; project) shift; project "$@" ;; panel) shift; panel "$@" ;; index) shift; index "$@" ;; verify) shift; verify "$@" ;;
+  *) sed -n 2,15p "$0" ;;
 esac

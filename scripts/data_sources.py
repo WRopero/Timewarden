@@ -51,7 +51,23 @@ def _ids(env: dict, key: str) -> list[str]:
 
 
 # ------------------------------------------------------------------ BigQuery
+def required_ids(env: dict) -> list[str]:
+    """Names of identifiers an adapter still needs before it can run (absent or TODO)."""
+    w = str(env.get("warehouse") or env.get("system") or "").lower()
+    need = {"bigquery": {"project": ["project"], "datasets": ["datasets", "dataset"]}, "snowflake": {"database": ["database"]},
+            "databricks": {"catalog": ["catalog"], "schemas": ["schemas", "schema"]}}
+    missing = []
+    for wh, fields in need.items():
+        if wh in w:
+            for label, keys in fields.items():
+                vals = [x for k in keys for x in _ids(env, k)]
+                if not vals or any("TODO" in x for x in vals):
+                    missing.append(label)
+    return missing
+
+
 def _bq(project: str, sql: str, location: str = "") -> list[dict]:
+    location = "" if "TODO" in location else location
     cmd = ["bq", "query", "--nouse_legacy_sql", "--format=json", "--max_rows=200000", f"--project_id={project}"]
     if location:
         cmd.append(f"--location={location}")

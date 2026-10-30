@@ -3,8 +3,8 @@
 Audience: an agent (Claude Code or other) that must install Cognee memory on **a new machine and a new repository, without knowing this system**. Follow the phases in order. Each phase has a command, an expected result, and what to do if it fails. Technical detail: `spec/Cognee-memory-specification.md` §21. All paths are relative to the kit folder (`<KIT>`, the one that contains this file in `seed-bundle/`); there are no fixed paths.
 
 ## Agent rules
-1. **Ask before changing the system** (the `machine`, plugin, panel and `index` phases): they start containers, touch Claude Code global settings or spend tokens.
-2. **Ask for the language and project type if they are not obvious** (phases 2 and 2b). Never guess them: the installer exits with code 3 so that you ask.
+1. **Run unattended.** The user authorized the whole installation by handing you the task: do not stop for approval at the `machine`, plugin, `index` or panel phases (they start containers, touch Claude Code global settings and spend tokens). Report at the end what you did and what indexing cost. Pass `--yes` yourself.
+2. **The only questions**: the language and the project type when they are not obvious (phases 2 and 2b; the installer exits with code 3 so that you ask), and an operating system other than macOS + Docker Desktop. Never guess those; ask once, then continue unattended.
 3. Do not print or paste secrets (`deploy/docker/.env`, `~/.cognee/.env`, observer token, `profiles.yml`, service accounts).
 4. Forbidden: `docker compose down -v`, `forget` with `everything`, mounting `~/.cognee-plugin/observer/`, publishing ports outside `127.0.0.1`.
 5. If something fails, read the troubleshooting table (spec §21.7) before improvising. Report what was tested and what was **not** tested.
@@ -32,31 +32,30 @@ Exit 0 (confidence ≥ 0.75): report it and continue. Exit 2 / `unknown`: **ask*
 ```bash
 python3 -I scripts/detect_project_type.py <repo>  # PROFILES=dbt,snowflake CONFIDENCE=.. EVIDENCE=.. [ASK=.. OPTIONS=a|b|c]
 ```
-A profile is 1–2 **layers**: `dbt`, `dataform`, `snowflake`, `bigquery`, `webapp`, `python-lib`, `generic` (e.g. `dbt,snowflake`, `dbt,bigquery`, `dataform,bigquery`, `bigquery`). Exit 0: report what was detected and its evidence. Exit 2 (ASK/OPTIONS): **ask the user** with those options (typical cases: dbt with no detectable adapter; empty repo; evidence of two warehouses) and pass `--profile <layers>`. Each layer contributes rules to the project's `CLAUDE.md`, indexing exclusions (credentials, keys, Terraform state) and templates. For data projects read `docs/DATA_PROJECTS.md`.
+A profile is 1–2 **layers**: `dbt`, `dataform`, `snowflake`, `bigquery`, `databricks`, `webapp`, `python-lib`, `generic` (e.g. `dbt,snowflake`, `dbt,bigquery`, `dbt,databricks`, `dataform,bigquery`, `databricks`, `bigquery`). Exit 0: report what was detected and its evidence. Exit 2 (ASK/OPTIONS): **ask the user** with those options (typical cases: dbt with no detectable adapter; empty repo; evidence of two warehouses) and pass `--profile <layers>`. Each layer contributes rules to the project's `CLAUDE.md`, indexing exclusions (credentials, keys, Terraform state) and templates. For data projects read `docs/DATA_PROJECTS.md`.
 
-## Phase 3 — Machine (once per machine) — requires approval
+## Phase 3 — Machine (once per machine)
 ```bash
 seed-bundle/seed.sh machine --yes
 ```
 Starts the observer, generates secrets (0600), brings up Postgres/API/MCP/collector, waits for `/health` = `ready` (60–90 s or more the first time), creates the MCP and plugin keys, creates `~/.cognee/.env` from `config/plugin.example.env` if it does not exist (session capture on with caps) and installs the observer LaunchAgent (macOS; reversible with `scripts/observer_launchagent.sh uninstall`; if the plugin is not yet installed it is retried after phase 4).
 
-## Phase 4 — Project (once per repo) — language, profile and plugin require approval
+## Phase 4 — Project (once per repo)
 ```bash
-seed-bundle/seed.sh project <repo> <project_id> --lang auto --profile auto [--no-capture] [--with-plugin]
+seed-bundle/seed.sh project <repo> <project_id> --lang auto --profile auto [--no-capture] [--no-plugin]
 ```
-Creates `.agent-memory/project.yaml` (contract with language, profile and exclusions), `.agent-memory/local.yaml` (kit path on this machine, **not versioned**), the `docs/agent-memory/` skeleton, the memory section in `CLAUDE.md` (profile rules, the rule to consult memory when ambiguous, deployments, security and OpenSpec), hooks (briefing/checkpoint) in `.claude/settings.local.json`, `project-memory-*` skills and local Git exclusions. **Exit code 3** = ambiguous language or profile → go back to phases 2/2b and ask. It initializes **OpenSpec** in the repo (`openspec/`, skills and `/opsx:*` commands) unless `--no-openspec`; exit code 4 with `--openspec yes` indicates the CLI is missing. Without `--with-plugin` it prints the three `claude plugin`/`claude mcp` commands that modify global settings: run them only with permission, from the repo.
+Creates `.agent-memory/project.yaml` (contract with language, profile and exclusions), `.agent-memory/local.yaml` (kit path on this machine, **not versioned**), the `docs/agent-memory/` skeleton, the memory section in `CLAUDE.md` (profile rules, the rule to consult memory when ambiguous, deployments, security and OpenSpec), hooks (briefing/checkpoint) in `.claude/settings.local.json`, `project-memory-*` skills and local Git exclusions. **Exit code 3** = ambiguous language or profile → go back to phases 2/2b and ask. It initializes **OpenSpec** in the repo (`openspec/`, skills and `/opsx:*` commands) unless `--no-openspec`; exit code 4 with `--openspec yes` indicates the CLI is missing. It installs the `cognee-memory` plugin and the MCP by default (run from the repo; `--no-plugin` skips it and prints the commands). **Data projects (dbt, Dataform, Databricks, BigQuery, Snowflake) are set up automatically in this same phase:** the lineage graph, the connection catalog, identifier discovery from the user's authenticated CLIs (gcloud/bq, snow, databricks), and enabling read-only live metadata for every environment whose probe succeeds. Read-only, metadata only, never table data, no secrets stored; failures are reported, not fatal, and retried after 24 h.
 
 ## Phase 5 — Pilot corpus
 Use the `project-memory-bootstrap` skill (already installed): read the real documentation, write `project.md` and `architecture.md` as `draft`, and propose 10–20 documents (decisions, implementations, business rules, runbooks **that are not already in `CLAUDE.md`**). List the gaps instead of filling them in; `status: verified` only after checking. If the repo uses **OpenSpec**, its specs and changes are already among the contract's sources: do not copy them into `docs/agent-memory/`.
 
-## Phase 6 — Index — requires approval (spends tokens)
+## Phase 6 — Index (spends tokens; report the cost at the end)
 ```bash
-scripts/memctl.sh sync <repo>            # plan: what would change, 0 calls
-scripts/memctl.sh sync <repo> --apply    # ≈ 2 Claude calls per chunk (15 docs ≈ 74 calls, 6 min)
+seed-bundle/seed.sh index <repo>         # plan, then --apply: ≈ 2 Claude calls per chunk (15 docs ≈ 74 calls, 6 min)
 ```
-Warn about the cost beforehand. Expected: all `indexed`.
+Run it without asking and include the cost in your final report. Expected: all `indexed`. For data projects the graph and connection documents are queued by the first session's hook, in the background, 60 documents per run (`data_graph.max_baseline_docs`); `seed.sh index` indexes them all now. From then on only changed documents are re-indexed.
 
-## Phase 7 — Control panel (Management Memory) — requires approval
+## Phase 7 — Control panel (Management Memory)
 ```bash
 seed-bundle/seed.sh panel --yes          # http://127.0.0.1:45876 — read-only
 ```
@@ -68,6 +67,11 @@ seed-bundle/seed.sh verify <repo>
 scripts/memctl.sh eval <repo>            # with evals/cases.<project_id>.jsonl (20 questions; see evals/cases.example.jsonl)
 ```
 Acceptance: API ready, observer reachable from the container, panel on :45876, MCP connected, briefing < 6000 characters, correct retrieval in top-5. Close with the `project-memory-handoff` skill, commit `docs/agent-memory/`, `.agent-memory/` (except `local.yaml`) and `CLAUDE.md` through the repo's normal flow, and deliver: what was installed, where, what it cost (tokens), how to disconnect (`claude plugin disable cognee-memory@cognee`, `claude mcp remove agents_cognee`) and the consumption review date (one week: `scripts/weekly_report.py`).
+
+## Data projects: what is automatic
+- **Graph:** `data_graph.py` rebuilds from the repo (using `manifest.json` / `dataform compile` when present). Query it instead of reading files: `data_graph.py impact|upstream|downstream|show|path|check`.
+- **Connections:** read `docs/agent-memory/connections.md`; never ask the user how to connect. `data_connect.py check` shows tools and variables on this machine.
+- **Keeping current:** the session-start hook fingerprints the repo and (where enabled) live metadata; it rebuilds and re-indexes only what changed.
 
 ## What the system remembers once installed (verify it in the first session)
 - **Briefing on session open:** goal, decisions, rules, pending items, deployments, security, active OpenSpec changes, current branch checkpoint and last handoff.

@@ -99,7 +99,7 @@ extra_ex = [e for e in dict.fromkeys(extra_ex) if e.strip("'\"") not in cfg]
 DATA_CORE = {"dbt", "dataform", "databricks"}
 DATA_ANY = DATA_CORE | {"bigquery", "snowflake"}
 if DATA_CORE & set(layers):   # change-driven graph sync settings (read by scripts/data_sync.py)
-    cfg = cfg.rstrip("\n") + "\ndata_graph:\n  auto_sync: true            # re-index changed graph documents automatically (only those whose content changed)\n  tool_exports: auto         # auto = use dbt manifest / dataform compile when available, else static parsing; off = static only\n  live_ttl_hours: 6          # live metadata check at most this often (only environments with metadata_sync: true)\n  max_auto_sync_docs: 20     # cap per automatic indexing run\n"
+    cfg = cfg.rstrip("\n") + "\ndata_graph:\n  auto_sync: true            # re-index changed graph documents automatically (only those whose content changed)\n  auto_baseline: true        # the first indexing of the graph documents also runs by itself, in the background\n  auto_enable_live: true     # discover identifiers from your authenticated CLIs and enable read-only live metadata where a probe works\n  max_baseline_docs: 60      # cap for the first indexing run\n  tool_exports: auto         # auto = use dbt manifest / dataform compile when available, else static parsing; off = static only\n  live_ttl_hours: 6          # live metadata check at most this often (only environments with metadata_sync: true)\n  max_auto_sync_docs: 20     # cap per automatic indexing run\n"
 cfg = cfg.replace("exclude:\n", "exclude:\n" + "".join(f"  - {e}\n" for e in extra_ex), 1)
 cfg = cfg.replace("memory_dataset:", f"profile: {','.join(layers)}                 # profile layers (profiles/): rules and exclusions\nmemory_dataset:", 1)
 put(repo / ".agent-memory/project.yaml", cfg)
@@ -168,6 +168,10 @@ for line in ("docs/agent-memory/handoffs/_local/", ".agent-memory/local.yaml", "
 if DATA_ANY & set(layers):   # data projects: connection catalog (always) and lineage graph (dbt / Dataform / Databricks)
     print("  data project: drafting the connection catalog (secret-free) ...")
     subprocess.run([sys.executable, "-I", str(S / "data_connect.py"), "--repo", str(repo), "init"])
+    for sub_cmd in ("discover", "enable-live"):   # zero-touch: ask the user's own authenticated CLIs; read-only; failures are reported, never fatal
+        r0 = subprocess.run([sys.executable, "-I", str(S / "data_connect.py"), "--repo", str(repo), sub_cmd], capture_output=True, text=True)
+        for ln in (r0.stdout.strip().splitlines() or ["nothing to do"]):
+            print(f"  {sub_cmd}: {ln}")
     if DATA_CORE & set(layers):
         r = subprocess.run([sys.executable, "-I", str(S / "data_sync.py"), "--repo", str(repo), "run", "--index", "off"], capture_output=True, text=True)
         print("  data graph: " + (r.stdout.strip() or r.stderr.strip()[-200:]))

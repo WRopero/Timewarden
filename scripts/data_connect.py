@@ -7,6 +7,8 @@ Usage: data_connect.py [--repo DIR] <command>
   render    write docs/agent-memory/connections.md (generated, indexed by the memory sync)
   check     which CLIs are installed and which env vars are set on THIS machine (names only, never values); no network
   brief     one-paragraph summary for the startup briefing
+  discover  fill `TODO` identifiers by asking the user's own, already-authenticated CLIs (gcloud, bq, snow, databricks); never overwrites a value
+  enable-live  probe each environment with a read-only metadata call and set `metadata_sync: true` where it works (retry backoff 24 h on failure)
 
 The catalog stores system, auth METHOD, environment variable NAMES, non-secret identifiers and command templates.
 Passwords, tokens and key contents are never read into it. Edit the file by hand: `TODO` marks what could not be detected.
@@ -14,6 +16,7 @@ Passwords, tokens and key contents are never read into it. Edit the file by hand
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import platform
 import re
@@ -264,10 +267,134 @@ def brief(repo: Path, lang: str = "en") -> str:
     return s
 
 
+def edit_env(text: str, env: str, key: str, value: str) -> tuple[str, bool]:
+    """Set `key: value` inside one environment block with a targeted line edit; inserts under `identifiers:` if the key is absent."""
+    lines, out, in_env, done = text.split("\n"), [], False, False
+    for ln in lines:
+        m = re.match(r"^  (\S+):\s*$", ln)
+        if m:
+            in_env = m.group(1) == env
+        if in_env and not done and re.match(rf"^\s+{re.escape(key)}:", ln):
+            out.append(re.match(r"^(\s+)", ln).group(1) + f"{key}: {value}"); done = True; continue
+        out.append(ln)
+    if not done:
+        out2, in_env = [], False
+        for ln in out:
+            m = re.match(r"^  (\S+):\s*$", ln)
+            if m:
+                in_env = m.group(1) == env
+            if in_env and not done and re.match(r"^\s+identifiers:", ln):
+                out2.append("    identifiers:" if ln.rstrip().endswith("{}") else ln)
+                out2.append(f"      {key}: {value}"); done = True; continue
+            out2.append(ln)
+        out = out2
+    return "\n".join(out), done
+
+
+def _fmt(v) -> str:
+    return f"[{', '.join(q(x) for x in v)}]" if isinstance(v, list) else q(v)
+
+
+def _first(out: str):
+    try:
+        return json.loads(out)
+    except ValueError:
+        return None
+
+
+def discover(repo: Path, run) -> list[str]:
+    """Fill missing/TODO identifiers from the user's authenticated CLIs. Metadata only; each call is best-effort."""
+    p = repo / CATALOG
+    if not p.exists():
+        return []
+    text, cat, notes = p.read_text(encoding="utf-8"), load(repo), []
+    def todo(v):
+        return v in (None, "", [], ["TODO"]) or "TODO" in str(v)
+    for name, e in (cat.get("environments") or {}).items():
+        ids = e.get("identifiers") or {}
+        w = str(e.get("warehouse") or "").lower()
+        upd: dict = {}
+        try:
+            if "bigquery" in w:
+                if todo(ids.get("project")):
+                    pr = run(["gcloud", "config", "get-value", "project"], 20).strip()
+                    if pr and pr != "(unset)" and " " not in pr:
+                        upd["project"] = pr
+                proj, dsets = upd.get("project") or ids.get("project"), ids.get("datasets") or ids.get("dataset")
+                if not todo(proj) and not todo(dsets) and todo(ids.get("location")):
+                    d0 = dsets[0] if isinstance(dsets, list) else dsets
+                    info = _first(run(["bq", "show", "--format=json", f"{proj}:{d0}"], 30))
+                    if isinstance(info, dict) and info.get("location"):
+                        upd["location"] = info["location"]
+            elif "snowflake" in w and todo(ids.get("connection")):
+                conns = _first(run(["snow", "connection", "list", "--format", "json"], 30)) or []
+                pick = next((c for c in conns if c.get("is_default")), conns[0] if conns else None)
+                if pick:
+                    upd["connection"] = pick.get("connection_name") or pick.get("name")
+            elif "databricks" in w:
+                if todo(ids.get("profile")):
+                    profs = _first(run(["databricks", "auth", "profiles", "--output", "json"], 30)) or {}
+                    plist = profs.get("profiles", profs) if isinstance(profs, dict) else profs
+                    good = [x for x in plist if x.get("valid")] or plist
+                    if good:
+                        upd["profile"] = good[0]["name"]
+                prof = upd.get("profile") or ids.get("profile")
+                base = ["databricks"] + (["--profile", prof] if not todo(prof) else [])
+                if todo(ids.get("catalog")) and not todo(prof):
+                    cats = _first(run(base + ["catalogs", "list", "--output", "json"], 30)) or []
+                    user = [c["name"] for c in cats if c.get("name") not in ("system", "samples", "hive_metastore", "__databricks_internal") and c.get("catalog_type", "") != "SYSTEM_CATALOG"]
+                    if len(user) == 1:
+                        upd["catalog"] = user[0]
+                cat_ = upd.get("catalog") or ids.get("catalog")
+                if todo(ids.get("schemas")) and not todo(prof) and not todo(cat_):
+                    sch = _first(run(base + ["schemas", "list", cat_, "--output", "json"], 30)) or []
+                    names = [x["name"] for x in sch if x.get("name") not in ("information_schema", "default")]
+                    if names:
+                        upd["schemas"] = names[:12]
+        except Exception as exc:   # LiveError or JSON shape: discovery is best-effort and never fatal
+            notes.append(f"[{name}] discovery incomplete: {str(exc)[:120]}")
+        for k, v in upd.items():
+            text, ok = edit_env(text, name, k, _fmt(v))
+            if ok:
+                notes.append(f"[{name}] {k} = {v if not isinstance(v, list) else ', '.join(v)}")
+    if any("=" in n for n in notes):
+        p.write_text(text, encoding="utf-8")
+    return notes
+
+
+def enable_live(repo: Path, probe, backoff_hours: float = 24) -> list[str]:
+    """Probe each not-yet-enabled environment (read-only signature call) and flip metadata_sync on success."""
+    import time
+    p = repo / CATALOG
+    if not p.exists():
+        return []
+    sdir = repo / ".agent-memory" / "data-sync-state"
+    sdir.mkdir(parents=True, exist_ok=True)
+    pf = sdir / "probe.json"
+    state = json.loads(pf.read_text()) if pf.exists() else {}
+    text, notes = p.read_text(encoding="utf-8"), []
+    for name, e in (load(repo).get("environments") or {}).items():
+        if e.get("metadata_sync") is True:
+            continue
+        if time.time() - state.get(name, {}).get("at", 0) < backoff_hours * 3600:
+            continue
+        res = probe(e)   # returns (ok, message)
+        state[name] = {"at": time.time(), "ok": res[0], "message": res[1][:160]}
+        if res[0]:
+            text, _ = edit_env(text, name, "metadata_sync", "true")
+            notes.append(f"[{name}] live metadata enabled")
+        else:
+            notes.append(f"[{name}] live metadata not enabled: {res[1][:120]}")
+    if any("enabled" in n and "not enabled" not in n for n in notes):
+        p.write_text(text, encoding="utf-8")
+    pf.write_text(json.dumps(state, indent=1, sort_keys=True))
+    return notes
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--repo", type=Path, default=Path.cwd())
-    ap.add_argument("cmd", choices=("init", "show", "render", "check", "brief"))
+    ap.add_argument("cmd", choices=("init", "show", "render", "check", "brief", "discover", "enable-live"))
     a = ap.parse_args()
     repo = a.repo.resolve()
     if a.cmd == "init":
@@ -296,6 +423,29 @@ def main() -> int:
         return 0
     if a.cmd == "show":
         print((repo / CATALOG).read_text() if (repo / CATALOG).exists() else "no catalog"); return 0
+    if a.cmd in ("discover", "enable-live"):
+        import data_sources as dsrc
+        if a.cmd == "discover":
+            notes = discover(repo, dsrc.RUN)
+        else:
+            def probe(env):
+                ad = dsrc.adapter_for(env)
+                if not ad:
+                    return False, f"no live adapter for {env.get('warehouse')}"
+                miss = dsrc.required_ids(env)
+                if miss:
+                    return False, "identifiers still missing: " + ", ".join(miss)
+                try:
+                    return True, "signature " + ad[0](env)[:60]
+                except dsrc.LiveError as exc:
+                    return False, str(exc)
+            notes = enable_live(repo, probe)
+        txt = render(repo)
+        out = repo / DOC
+        if out.exists() and out.read_text() != txt:
+            out.write_text(txt, encoding="utf-8")
+        print("\n".join(notes) or "nothing to do")
+        return 0
     if a.cmd == "brief":
         print(brief(repo)); return 0
     return check(repo)

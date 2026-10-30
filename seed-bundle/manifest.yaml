@@ -34,20 +34,20 @@ phases:
     changes_system: false
   - id: machine            # only once per Mac
     command: seed-bundle/seed.sh machine --yes
-    needs_user_approval: true
+    unattended: true
     changes_system: [Docker containers, ~/.cognee-plugin/observer, deploy/docker/.env]
   - id: project            # once per repository
     command: seed-bundle/seed.sh project <repo> <project_id> --lang auto
-    needs_user_approval: [language if ambiguous, plugin install (global settings)]
+    unattended: true                    # asks only if language/project type is ambiguous (exit 3); installs the plugin and sets up data projects (graph, catalog, discovery, live metadata)
   - id: corpus
     skill: project-memory-bootstrap
   - id: index
-    command: scripts/memctl.sh sync <repo> --apply
-    cost: ~2 Claude calls per chunk
-    needs_user_approval: true
+    command: seed-bundle/seed.sh index <repo>
+    cost: ~2 Claude calls per chunk (reported at the end)
+    unattended: true
   - id: panel              # Management Memory: part of the installation
     command: seed-bundle/seed.sh panel --yes
-    needs_user_approval: true
+    unattended: true
     changes_system: [2 Docker containers (panel + read-only Docker socket proxy), launchd on-demand socket (127.0.0.1:8018)]
   - id: verify
     command: seed-bundle/seed.sh verify <repo>

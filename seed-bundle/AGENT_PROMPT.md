@@ -6,10 +6,10 @@ Unzip the kit in any folder (we will call it `<KIT>`: it contains `seed-bundle/S
 Install project memory in <repo> with project_id <project_id>.
 The installation kit is in <KIT> (the folder that contains seed-bundle/SEED.md). Work from that folder.
 Read seed-bundle/SEED.md and follow the phases in order using seed-bundle/seed.sh. Rules:
-- Ask me before starting containers, installing the plugin, bringing up the dashboard or indexing (indexing spends tokens).
-- If the language (Spanish/English) or the project type (dbt, Dataform, Snowflake, BigQuery, web application, etc.) is not obvious, ask me; do not guess. If the installer exits with code 3, that is a question for me.
+- Do the whole installation yourself, end to end, with nothing left for me to do by hand: start the containers, install the plugin, set up the project, build the data graph and connection catalog (discover identifiers from my authenticated CLIs and enable read-only live metadata where it works), index, bring up the dashboard and verify. Do not ask for approval at each phase; I authorize all of it by giving you this task. The first indexing spends my Claude subscription tokens: report the cost at the end.
+- The only reasons to stop and ask me: the language or the project type is ambiguous (installer exit code 3), or my operating system is not macOS + Docker Desktop.
+- If the language (Spanish/English) or the project type (dbt, Dataform, Databricks, Snowflake, BigQuery, web application, etc.) is not obvious, ask me that single question; do not guess. If the installer exits with code 3, that is the question.
 - Do not print secrets. No `down -v` and no `forget everything`.
-- Only macOS + Docker Desktop is validated: if I am on another system, tell me before continuing.
 - When finished, give me: what you installed, where, the token cost, how to disconnect it and the results of `seed.sh verify`.
 ```
 

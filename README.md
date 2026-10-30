@@ -23,7 +23,7 @@ Timewarden turns a repository into a project that *remembers*: when a session op
 | **Data profiles** | Specialized rules for dbt, Dataform, Databricks, Snowflake, BigQuery/Terraform, web apps | No |
 | **Data project graph** | Offline lineage graph of a dbt / Dataform / Databricks repo (what reads what, impact of a change, conventions, health checks) answered exactly by `data_graph.py`; the same facts are written as documents Cognee indexes | Only when indexing |
 | **Connection catalog** | Secret-free per-environment recipes (system, auth method, env var names, validate/explore/dry-run commands) so agents stop asking how to connect | No |
-| **Change-driven sync** | A session-start hook fingerprints the repo (and, opt-in, live warehouse metadata) and rebuilds and re-indexes only what changed | Only changed documents |
+| **Change-driven sync** | A session-start hook fingerprints the repo (and, where a read-only probe works, live warehouse metadata) and rebuilds and re-indexes only what changed. Installed and configured entirely by the agent | Only changed documents |
 | **Management Memory dashboard** | Read-only board: health, vectors, graph, PostgreSQL, tokens/cost, memory usage | No |
 
 Indexing new documents does consume your Claude subscription (≈ 2 calls per fragment); querying does not.

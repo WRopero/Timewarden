@@ -48,9 +48,10 @@ def config(repo: Path) -> dict:
     if p.exists():
         y = miniyaml.load(p.read_text(encoding="utf-8")) or {}
     c = y.get("data_graph") if isinstance(y.get("data_graph"), dict) else {}
-    return {"auto_sync": c.get("auto_sync", True) is not False, "tool_exports": str(c.get("tool_exports", "auto")),
+    return {"auto_sync": c.get("auto_sync", True) is not False, "auto_baseline": c.get("auto_baseline", True) is not False,
+            "auto_enable_live": c.get("auto_enable_live", True) is not False, "tool_exports": str(c.get("tool_exports", "auto")),
             "live_ttl_hours": float(c.get("live_ttl_hours", 6)), "max_auto_sync_docs": int(c.get("max_auto_sync_docs", 20)),
-            "profile": str(y.get("profile", ""))}
+            "max_baseline_docs": int(c.get("max_baseline_docs", 60)), "profile": str(y.get("profile", ""))}
 
 
 def is_data_project(repo: Path, cfg: dict) -> bool:
@@ -109,7 +110,24 @@ def run(repo: Path, force=False, live="auto", index="auto") -> dict:
         st = load_state(sp)
         fp = dg.fingerprint(repo)
         changed = force or fp != st.get("fingerprint") or not (repo / dg.OUT_REL / "graph.json").exists()
-        # tier B: live metadata, opt-in, rate-limited by TTL, and only fully fetched when its signature moved
+        # zero-touch: fill identifiers from the user's authenticated CLIs and enable live metadata where a read-only probe works
+        if live != "off" and cfg["auto_enable_live"] and (repo / dc.CATALOG).exists():
+            def probe(env):
+                ad = ds.adapter_for(env)
+                if not ad:
+                    return False, f"no live adapter for {env.get('warehouse')}"
+                miss = ds.required_ids(env)
+                if miss:
+                    return False, "identifiers missing: " + ", ".join(miss)
+                try:
+                    return True, "signature " + ad[0](env)[:60]
+                except ds.LiveError as exc:
+                    return False, str(exc)
+            try:
+                res["discovery"] = dc.discover(repo, ds.RUN) + dc.enable_live(repo, probe)
+            except Exception as exc:
+                res["errors"].append(f"discovery: {str(exc)[:120]}")
+        # tier B: live metadata, rate-limited by TTL, and only fully fetched when its signature moved
         envs = live_envs(repo) if live != "off" else {}
         for name, e in envs.items():
             lst = st.setdefault("live", {}).setdefault(name, {})
@@ -159,22 +177,23 @@ def run(repo: Path, force=False, live="auto", index="auto") -> dict:
             plan = index_plan(repo)
             n = sum(plan.get(k, 0) for k in ("new", "changed", "retry", "deleted"))
             baseline = plan.get("unchanged", 0) + plan.get("changed", 0) + plan.get("retry", 0) > 0
+            cap = 0 if index == "now" else (cfg["max_auto_sync_docs"] if baseline else cfg["max_baseline_docs"])
             if n == 0:
                 res["indexed"] = "current"
-            elif not baseline and index != "now":
-                # first indexing is a deliberate, costly step (each chunk is LLM-processed): the user runs it once, then updates are automatic
-                res["indexed"] = (f"baseline pending ({plan.get('new', 0)} documents never indexed): run `memctl.sh sync <repo> --apply` once "
-                                  f"to enable automatic incremental updates")
+            elif not baseline and not cfg["auto_baseline"] and index != "now":
+                res["indexed"] = f"baseline pending ({plan.get('new', 0)} documents never indexed; auto_baseline is off): run `memctl.sh sync <repo> --apply`"
             elif not stack_up():
                 res["indexed"] = f"pending {n} (memory stack is down)"
             else:
-                cmd = [sys.executable, "-I", str(HERE / "sync_markdown.py"), str(repo), "--apply", "--only", dg.OUT_REL, "--only", dc.DOC,
-                       "--max-docs", str(cfg["max_auto_sync_docs"])]
+                cmd = [sys.executable, "-I", str(HERE / "sync_markdown.py"), str(repo), "--apply", "--only", dg.OUT_REL, "--only", dc.DOC]
+                if cap:
+                    cmd += ["--max-docs", str(cap)]
                 if index == "now":
-                    subprocess.run(cmd, timeout=1800)
+                    subprocess.run(cmd, timeout=3600)
                 else:
                     subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)
-                res["indexed"] = f"{min(n, cfg['max_auto_sync_docs'])} of {n} queued" if index != "now" else f"{n} synced"
+                shown = n if not cap else min(n, cap)
+                res["indexed"] = f"{n} synced" if index == "now" else f"{shown} of {n} queued" + ("" if baseline else " (first indexing, runs in the background)")
         st["last"] = {"at": time.time(), "result": res}
         save_state(sp, st)
     return res
@@ -203,6 +222,8 @@ def line(repo: Path) -> tuple[str, bool]:
         parts.append("live metadata: " + (", ".join(ages) if ages else "not fetched yet") + (" (refresh due)" if due else ""))
     if last.get("errors"):
         parts.append("last sync issues: " + "; ".join(last["errors"])[:160])
+    for note in last.get("discovery", [])[:3]:
+        parts.append(note)
     if last.get("indexed", "").startswith(("pending", "baseline")):
         parts.append(last["indexed"])
     return ". ".join(parts) + ".", (stale or not g or bool(due))

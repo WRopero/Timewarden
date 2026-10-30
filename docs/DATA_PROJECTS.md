@@ -83,17 +83,20 @@ Prose notes cannot answer "what breaks if I change this model?". For `dbt`, `dat
 `data_sync.py hook` runs inside the session-start briefing and costs ~0.15 s when nothing changed:
 
 1. **Tier A fingerprint:** content hash of the repo files that can change the graph. Unchanged → nothing is rebuilt.
-2. **Tier B live metadata (opt-in):** only environments with `metadata_sync: true` in the catalog, at most once per `live_ttl_hours`, and a full fetch only when a cheap signature moved (BigQuery `__TABLES__` count + latest modification; Snowflake `INFORMATION_SCHEMA.TABLES`; Databricks `tables list`). It reads table/column/partitioning metadata, **never table data**, runs only `SELECT`/list calls (a guard rejects anything else) with your own CLI authentication, and records drift (declared-but-missing, live-but-undeclared). Dataform workflow runs and lineage-system tables are not read in 0.3.0.
+2. **Tier B live metadata (automatic where it works):** only environments with `metadata_sync: true` in the catalog (set automatically by a successful probe, or by hand), at most once per `live_ttl_hours`, and a full fetch only when a cheap signature moved (BigQuery `__TABLES__` count + latest modification; Snowflake `INFORMATION_SCHEMA.TABLES`; Databricks `tables list`). It reads table/column/partitioning metadata, **never table data**, runs only `SELECT`/list calls (a guard rejects anything else) with your own CLI authentication, and records drift (declared-but-missing, live-but-undeclared). Dataform workflow runs and lineage-system tables are not read in 0.3.0.
 3. **Rebuild** only if something changed, then **index only the documents whose content hash changed**, detached, capped by `max_auto_sync_docs`, skipped silently if the memory stack is down (the briefing then says it is pending).
 
-**Cost guard:** the first indexing of the graph documents is deliberately manual (`memctl.sh sync <repo> --apply`, every chunk costs Claude calls); only after that baseline exists do changes sync automatically. Settings in `.agent-memory/project.yaml`:
+**Zero-touch:** nothing here needs a manual step. The installer (run by the agent) discovers missing identifiers from your own authenticated CLIs (`gcloud config`/`bq show`, `snow connection list`, `databricks auth profiles`/`catalogs list`/`schemas list`; it fills only missing or `TODO` values and never overwrites yours), probes every environment with a read-only metadata call and turns `metadata_sync` on where it works (a failing login is retried after 24 h and reported in the briefing), and the first indexing of the graph documents starts by itself in the background (up to `max_baseline_docs` per run, then only changed documents). Every chunk indexed costs Claude calls; `seed.sh index` reports the cost. Switch any of it off in `.agent-memory/project.yaml`:
 
 ```yaml
 data_graph:
-  auto_sync: true          # re-index changed graph documents automatically (after the baseline)
+  auto_sync: true          # re-index changed graph documents automatically
+  auto_baseline: true      # the first indexing also runs by itself (background, capped per run)
+  auto_enable_live: true   # discover identifiers and enable read-only live metadata where a probe works
   tool_exports: auto       # auto | off (static only)
   live_ttl_hours: 6
   max_auto_sync_docs: 20
+  max_baseline_docs: 60
 ```
 
 **Validation status:** the parsers were exercised against real dbt and Dataform repositories; the live adapters are covered by tests with stubbed CLIs and have not been run against real BigQuery, Snowflake or Databricks accounts yet. Treat the first live sync of each system as something to watch.
