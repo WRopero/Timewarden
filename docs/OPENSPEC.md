@@ -19,7 +19,7 @@ Every new feature, behavior change, non-trivial refactor, or data/infrastructure
 | Indexing sources | `openspec/specs/**` (current, `verified`), `openspec/changes/**` (active `draft`, archived `verified`). They don't require frontmatter |
 | Briefing | Lists how many current specs there are and the **names of the active changes** |
 | Ambiguity rule | Before proposing, the agent consults the memory and the specs; if code and spec differ, it asks |
-| Retrieval | A chunk from a spec carries `type=openspec-spec` and its path, so it can be cited |
+| Retrieval | A chunk from a current spec carries `type=openspec-spec` and its path, so it can be cited; files inside a change (delta specs included) carry that change's type: `openspec-change` (`draft`) or `openspec-change-archived` |
 
 ## Installation
 `seed.sh doctor` checks for the `openspec` CLI; `seed.sh project` runs `openspec init --tools claude --language <es|en>` in the repo (unless `--no-openspec` is given). If the CLI is missing, the agent must offer to install it for you (see `seed-bundle/SEED.md`).

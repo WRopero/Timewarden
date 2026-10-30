@@ -70,6 +70,16 @@ def parse_frontmatter(text: str) -> tuple[dict, str]:
     return meta, m.group(2)
 
 
+def openspec_label(rel: str) -> dict:
+    """Only openspec/specs/** are current specs. Everything under openspec/changes/** (delta specs included)
+    takes the label of its change: archived = verified history, active = draft proposal."""
+    if rel.startswith("openspec/specs/"):
+        return {"type": "openspec-spec", "status": "verified"}
+    if rel.startswith("openspec/changes/archive/"):
+        return {"type": "openspec-change-archived", "status": "verified"}
+    return {"type": "openspec-change", "status": "draft"}
+
+
 def enumerate_docs(repo: Path, cfg: dict) -> dict[str, dict]:
     docs: dict[str, dict] = {}
     excludes = cfg.get("exclude", [])
@@ -81,8 +91,7 @@ def enumerate_docs(repo: Path, cfg: dict) -> dict[str, dict]:
             text = path.read_text(encoding="utf-8")
             meta, body = parse_frontmatter(text)
             if rel.startswith("openspec/") and "type" not in meta:  # OpenSpec specs have no frontmatter
-                meta = {**meta, "type": "openspec-spec" if "/specs/" in rel else "openspec-change-archived" if "/archive/" in rel else "openspec-change",
-                        "status": "verified" if "/specs/" in rel or "/archive/" in rel else "draft"}
+                meta = {**meta, **openspec_label(rel)}
             docs[rel] = {
                 "path": rel,
                 "hash": hashlib.sha256(text.encode()).hexdigest(),
@@ -126,6 +135,15 @@ def in_scope(path: str) -> bool:
     return not SCOPE or any(path == s or path.startswith(s.rstrip("/") + "/") for s in SCOPE)
 
 
+def label_changed(path: str, entry: dict, d: dict) -> bool:
+    """The chunk header carries type/status but the content hash does not: relabel when they differ.
+    Entries indexed before the registry recorded the label are only re-checked for OpenSpec delta specs
+    (the files that v0.3.1 and earlier mislabeled as current `openspec-spec`)."""
+    if "type" in entry:
+        return (entry["type"], entry.get("doc_status")) != (d["type"], d["status"])
+    return path.startswith("openspec/changes/") and "/specs/" in path
+
+
 def plan(docs: dict, entries: dict) -> dict[str, list[str]]:
     out = {"new": [], "changed": [], "unchanged": [], "deleted": [], "skipped": [], "retry": []}
     for path, d in docs.items():
@@ -133,7 +151,7 @@ def plan(docs: dict, entries: dict) -> dict[str, list[str]]:
             out["skipped"].append(path)
         elif path not in entries:
             out["new"].append(path)
-        elif entries[path]["hash"] != d["hash"]:
+        elif entries[path]["hash"] != d["hash"] or label_changed(path, entries[path], d):
             out["changed"].append(path)
         elif entries[path]["status"] in ("error", "unverified", "pending", "submitted"):
             out["retry"].append(path)
@@ -196,6 +214,7 @@ def apply(repo: Path, cfg: dict, docs: dict, reg: dict, do_verify: bool, max_doc
             data_id = r["data_ingestion_info"][0]["data_id"]
             entries[path] = {"doc_id": d["doc_id"], "hash": d["hash"], "commit": d["commit"],
                              "schema_version": SCHEMA_VERSION, "embedder": EMBEDDER,
+                             "type": d["type"], "doc_status": d["status"],
                              "status": "submitted", "data_id": data_id, "last_error": "",
                              "updated": time.strftime("%Y-%m-%dT%H:%M:%S")}
             submitted.append(path)
